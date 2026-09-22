@@ -1,0 +1,105 @@
+{
+  "name": "Yahoo Finance Price Sync",
+  "nodes": [
+    {
+      "id": "8741d0bc-0f03-4d87-a7e6-ab2916b8d554",
+      "name": "Weekly Schedule (Fri 21:05 UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-740, 0],
+      "notes": "After US market close and after Socrates' own Friday close data. Adjust the cron expression for your timezone/preference.",
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "5 21 * * 5" }]
+        }
+      }
+    },
+    {
+      "id": "42a26d25-8ede-4d09-916a-c4421defb3d2",
+      "name": "Build Symbol Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 0],
+      "notes": "One item per proxy symbol, matching scorecard.py's CATEGORY_PROXIES: Stocks/Stock Indices->QQQ, Currencies->EUR/USD spot, Commodities->USO+GLD, Bonds->HYG+TLT, Crypto->BTC-USD. RANGE defaults to '5d' for the recurring weekly job (only need the latest close) — change to '2y' and run this workflow manually once for an initial historical backfill, then change it back.",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const SYMBOLS = [\"QQQ\", \"EURUSD=X\", \"USO\", \"GLD\", \"HYG\", \"TLT\", \"BTC-USD\"];\nconst RANGE = \"5d\"; // change to \"2y\" for a one-off historical backfill run, then change back to \"5d\"\n\nreturn SYMBOLS.map(symbol => ({ json: { symbol, range: RANGE } }));"
+      }
+    },
+    {
+      "id": "094c072a-3561-4db6-ac32-c39f7978d138",
+      "name": "Fetch Yahoo Chart Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-260, 0],
+      "notes": "⚠ Unofficial endpoint — same one yfinance wraps. I could not test this live: this cloud session's own network is allowlisted and Yahoo Finance isn't on it (confirmed 403 policy denial when I tried). Your n8n host may reach it fine, or may also get blocked/need a crumb token depending on where it's hosted (cloud-provider IP ranges are the ones Yahoo tends to rate-limit). If this errors, swap the URL for stooq.com's free CSV endpoint (https://stooq.com/q/d/l/?s={symbol}&i=d) or your EODHD/Alpha Vantage key — same downstream Reshape/Upsert nodes, just a different response shape to adapt in Reshape.",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ encodeURIComponent($json.symbol) }}?range={{ $json.range }}&interval=1d",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "1aeb8900-380b-4ad3-9027-25abed697029",
+      "name": "Reshape Yahoo Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-20, 0],
+      "notes": "Shape-tested against a synthetic Yahoo v8 chart response (node reshape_yahoo_response.js) before being pasted in here — not tested against a live response, since this session can't reach the endpoint. Verify once against real output after import. Reads the symbol back out of the response itself (result.meta.symbol) rather than trying to carry it through the HTTP node's output, which n8n version differences make fragile.",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const allRows = [];\nfor (const item of $input.all()) {\n  const chartResponse = item.json;\n  const result = chartResponse?.chart?.result?.[0];\n  if (!result) {\n    const err = chartResponse?.chart?.error;\n    console.log(\"Skipping item with no result: \" + (err ? JSON.stringify(err) : \"unknown shape\"));\n    continue;\n  }\n  const symbol = result.meta && result.meta.symbol;\n  if (!symbol) {\n    console.log(\"Skipping item with no meta.symbol — response shape may have changed.\");\n    continue;\n  }\n  const timestamps = result.timestamp || [];\n  const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];\n  for (let i = 0; i < timestamps.length; i++) {\n    const close = closes[i];\n    if (close === null || close === undefined) continue; // non-trading session in range — skip, don't fabricate\n    const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);\n    allRows.push({ date, symbol, close: Number(close) });\n  }\n}\n\nif (allRows.length === 0) {\n  throw new Error(\"Reshaped zero price rows — check the Fetch Yahoo Chart Data node's raw output; the endpoint may be blocked or the response shape may have changed.\");\n}\n\nreturn allRows.map(r => ({ json: r }));"
+      }
+    },
+    {
+      "id": "bdee11f6-0282-46b5-93fb-928628ad9ad5",
+      "name": "Upsert to Supabase (market_prices)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "notes": "Upsert (Prefer: resolution=merge-duplicates) — unlike breadth data, re-pulling overlapping price history every week is normal and expected, so overwriting an existing (date, symbol) row is correct here, not a mistake. Needs SUPABASE_URL and SUPABASE_SERVICE_KEY set as environment variables on the n8n host.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/market_prices",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Weekly Schedule (Fri 21:05 UTC)": {
+      "main": [[{ "node": "Build Symbol Requests", "type": "main", "index": 0 }]]
+    },
+    "Build Symbol Requests": {
+      "main": [[{ "node": "Fetch Yahoo Chart Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Yahoo Chart Data": {
+      "main": [[{ "node": "Reshape Yahoo Response", "type": "main", "index": 0 }]]
+    },
+    "Reshape Yahoo Response": {
+      "main": [[{ "node": "Upsert to Supabase (market_prices)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

@@ -1,0 +1,67 @@
+{
+  "name": "Socrates Breadth Ingestion",
+  "nodes": [
+    {
+      "id": "19431c95-114c-44f9-8a1a-df8f149599b0",
+      "name": "Weekly Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-500, 0],
+      "webhookId": "de398526-3060-481d-8e52-115c04db18b9",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "socrates-breadth-ingest",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "d2357bc1-e93a-4179-9fb8-2da91d730334",
+      "name": "Parse Breadth Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-260, 0],
+      "notes": "Regex port of add_breadth_week.py's parser — tested standalone (node parse_breadth_report.js) against the Sep 11 and Sep 18 2026 reports before being pasted in here; implied per-category totals (count/pct) came out consistent across every metric, which is the check that columns lined up with the right category.",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const CATEGORY_ORDER = [\"Stocks\", \"Currencies\", \"Stock Indices\", \"Bonds\", \"Commodities\", \"ETFs\", \"Crypto\"];\nconst SECTION_HEADERS = {\n  \"The Reversal System\": \"reversal_system\",\n  \"Timing Array Models\": \"timing_array\",\n  \"Stochastics\": \"stochastics\",\n  \"Indicating Ranges\": \"indicating_ranges\",\n  \"Global Market Watch\": \"gmw\",\n};\nconst WEEK_RE = /close for Weekly\\s+(\\d{4}-\\d{2}-\\d{2})/;\nconst HEADLINE_RE = /^(Stocks|Currencies|Stock Indices|Bonds|Commodities|ETFs|Crypto):\\s+([\\d,]+)\\s+Markets\\s*\\(or\\s+([\\d.]+)%\\)\\s+covered markets in this category are currently showing a\\s+(.+?)\\.\\s*$/;\nconst CELL_RE = /([\\d,]+)\\s+Markets\\s*\\(or\\s+([\\d.]+)%\\)/g;\n\nconst text = $input.first().json.report_text || $input.first().json.body?.report_text;\nif (!text) {\n  throw new Error(\"Expected a 'report_text' field in the webhook body — none found. POST { \\\"report_text\\\": \\\"<full pasted weekly summary>\\\" }.\");\n}\n\nconst weekMatch = text.match(WEEK_RE);\nif (!weekMatch) {\n  throw new Error(\"Couldn't find 'close for Weekly YYYY-MM-DD' in this report — refusing to guess the week.\");\n}\nconst weekOf = weekMatch[1];\nconst rows = [];\n\nfor (const line of text.split(\"\\n\")) {\n  const hm = line.match(HEADLINE_RE);\n  if (hm) {\n    const [, category, count, pct, metric] = hm;\n    rows.push({\n      week_of: weekOf, section: \"headline\", category,\n      metric: metric.trim(), count: parseInt(count.replace(/,/g, \"\"), 10), pct: parseFloat(pct),\n    });\n  }\n}\n\nlet currentSection = null;\nfor (const rawLine of text.split(\"\\n\")) {\n  const line = rawLine.trim();\n  if (!line) continue;\n  if (Object.prototype.hasOwnProperty.call(SECTION_HEADERS, line)) {\n    currentSection = SECTION_HEADERS[line];\n    continue;\n  }\n  if (!currentSection) continue;\n\n  const cells = [...line.matchAll(CELL_RE)];\n  if (cells.length !== CATEGORY_ORDER.length) continue; // not a data row — skip, don't guess\n\n  const firstCellPos = line.search(CELL_RE);\n  const metric = line.slice(0, firstCellPos).trim().replace(/[\\t|]+$/, \"\").trim();\n\n  cells.forEach((cellMatch, i) => {\n    const [, count, pct] = cellMatch;\n    rows.push({\n      week_of: weekOf, section: currentSection, category: CATEGORY_ORDER[i],\n      metric, count: parseInt(count.replace(/,/g, \"\"), 10), pct: parseFloat(pct),\n    });\n  });\n}\n\nif (rows.length === 0) {\n  throw new Error(\"Parsed zero rows — report text didn't match the expected shape. Check it pasted through intact (section headers, tab/space-separated Markets(or..%) cells).\");\n}\n\nreturn rows.map(r => ({ json: r }));"
+      }
+    },
+    {
+      "id": "5802202f-fd37-4aeb-9e77-f057f70116fd",
+      "name": "Insert into Supabase (platform_breadth)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 0],
+      "notes": "Plain insert, no upsert — the unique(week_of, section, category, metric) constraint makes a re-run of the same week fail loudly (shows red in the execution log) instead of silently duplicating or overwriting. If you genuinely need to re-import a week, delete its rows in Supabase first. Needs SUPABASE_URL and SUPABASE_SERVICE_KEY set as environment variables on the n8n host.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/platform_breadth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Weekly Report Webhook": {
+      "main": [[{ "node": "Parse Breadth Report", "type": "main", "index": 0 }]]
+    },
+    "Parse Breadth Report": {
+      "main": [[{ "node": "Insert into Supabase (platform_breadth)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

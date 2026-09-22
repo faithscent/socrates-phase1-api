@@ -1,0 +1,2307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socrates Live Desk</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #131824;
+    --panel-border: #232a3b;
+    --text: #e6e9ef;
+    --text-dim: #8791a8;
+    --caution: #e0a339;
+    --constructive: #3ea86a;
+    --neutral: #5b6478;
+    --danger: #d6534f;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 20px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 14px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  .sub { color: var(--text-dim); font-size: 13px; }
+  #status-line { font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.ok { background: var(--constructive); }
+  .dot.bad { background: var(--danger); }
+  .dot.pending { background: var(--text-dim); }
+  button {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { border-color: var(--accent); }
+
+  #config-banner {
+    background: #241a0c;
+    border: 1px solid var(--caution);
+    color: #f0c987;
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  #config-banner code { background: #000000aa; padding: 1px 5px; border-radius: 4px; }
+
+  #error-banner {
+    background: #2a1414;
+    border: 1px solid var(--danger);
+    color: #f2a7a4;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    display: none;
+    white-space: pre-wrap;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-left: 4px solid var(--neutral);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .card.CAUTION { border-left-color: var(--caution); }
+  .card.CONSTRUCTIVE { border-left-color: var(--constructive); }
+  .card.NEUTRAL { border-left-color: var(--neutral); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .cat-name { font-weight: 600; font-size: 15px; }
+  .proxy { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .call-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .call-badge.CAUTION { background: #3a2a0c; color: var(--caution); }
+  .call-badge.CONSTRUCTIVE { background: #10321f; color: var(--constructive); }
+  .call-badge.NEUTRAL { background: #1c2130; color: var(--neutral); }
+  .score-row { display: flex; align-items: baseline; gap: 6px; margin-top: 10px; }
+  .score { font-size: 24px; font-weight: 700; }
+  .score-label { color: var(--text-dim); font-size: 11px; }
+  .vol-flag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--danger); margin-top: 6px;
+  }
+  .vol-flag .dot { background: var(--danger); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .spark { margin-top: 10px; }
+  .prices { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  .prices b { color: var(--text); }
+  .iv-block {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--panel-border);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .iv-row { display: flex; justify-content: space-between; margin-top: 3px; }
+  .iv-row b { color: var(--text); font-weight: 600; }
+  .skew-positive { color: var(--caution); }
+  .skew-negative { color: var(--constructive); }
+  .no-iv { font-style: italic; opacity: 0.7; }
+  .iv-rank-cheap { color: var(--constructive); font-weight: 600; }
+  .iv-rank-rich { color: var(--caution); font-weight: 600; }
+  .iv-rank-mid { color: var(--text-dim); }
+  .iv-rank-thin { font-style: italic; opacity: 0.7; }
+
+  .cheapest-iv-panel {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 4px 16px;
+  }
+  .civ-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 0; border-bottom: 1px solid var(--panel-border); font-size: 13px;
+  }
+  .civ-row:last-child { border-bottom: none; }
+  .civ-row.civ-cheapest { border-left: 3px solid var(--constructive); padding-left: 8px; margin-left: -11px; }
+  .civ-rank { color: var(--text-dim); width: 18px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .civ-symbol { font-weight: 700; width: 56px; flex-shrink: 0; }
+  .civ-category { color: var(--text-dim); flex: 1; min-width: 140px; }
+  .civ-iv { font-weight: 700; width: 66px; text-align: right; flex-shrink: 0; }
+  .civ-skew { width: 172px; text-align: right; flex-shrink: 0; font-size: 12.5px; }
+  .civ-rank-badge { width: 180px; text-align: right; flex-shrink: 0; font-size: 12px; }
+  .week-of { color: var(--text-dim); font-size: 11px; margin-top: 8px; }
+
+  .watchlist-group { margin-bottom: 18px; }
+  .watchlist-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+  .watchlist-group-header .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .watchlist-table {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .wl-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 9px 14px; border-bottom: 1px solid var(--panel-border); font-size: 13px;
+  }
+  .wl-row:last-child { border-bottom: none; }
+  .wl-row.wl-header { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 8px; padding-bottom: 8px; }
+  .wl-name { flex: 2; min-width: 180px; }
+  .wl-name .conf-note { font-style: italic; opacity: 0.65; font-size: 11px; margin-left: 4px; }
+  .wl-close { width: 90px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .wl-change { width: 68px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  /* Price direction, not score direction — up is a real gain (green), down is
+     a real loss (red). Deliberately the OPPOSITE convention from score-change
+     coloring elsewhere on this page, where a rising score means MORE caution
+     (amber). Two different things being colored: a breadth signal's direction
+     vs. an instrument's literal price move. */
+  .wl-change .up { color: var(--constructive); }
+  .wl-change .down { color: var(--danger); }
+  .wl-ma { width: 110px; text-align: right; flex-shrink: 0; font-size: 12px; }
+  .wl-ma .above { color: var(--constructive); }
+  .wl-ma .below { color: var(--caution); }
+  .wl-ma .thin { font-style: italic; opacity: 0.65; }
+  .wl-volume { width: 90px; text-align: right; flex-shrink: 0; font-size: 12px; color: var(--text-dim); }
+
+  .trigger-panel { display: flex; flex-direction: column; gap: 10px; }
+  .trigger-row {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-left: 4px solid var(--neutral);
+    border-radius: 8px; padding: 12px 16px;
+  }
+  /* "Watch" is descriptive, not a buy/sell instruction — it just means a
+     fresh breadth event (a call crossing this week, or a volatility flag)
+     coincides with this category's IV proxy sitting in the cheaper half of
+     everything currently tracked. Highlighted so it's easy to scan for,
+     never auto-sorted above the trader's own judgment. */
+  .trigger-row.watch { border-left-color: var(--constructive); }
+  .trigger-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .trigger-cat { font-weight: 600; font-size: 15px; }
+  .trigger-flags { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .trigger-flag-crossed {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px;
+    border-radius: 999px; background: #3a2a0c; color: var(--caution);
+  }
+  .trigger-flag-volatility {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px;
+    border-radius: 999px; background: #2a1414; color: var(--danger);
+  }
+  .trigger-flag-watch {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px;
+    border-radius: 999px; background: #10321f; color: var(--constructive);
+  }
+  .trigger-body { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; }
+  .trigger-block { min-width: 200px; }
+  .trigger-block-title { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .trigger-proxy-row { display: flex; gap: 10px; align-items: baseline; padding: 2px 0; flex-wrap: wrap; }
+  .trigger-proxy-row b { font-size: 12px; }
+  /* Same deliberately-inverted convention as .wl-change (see its comment
+     above) — a real price gain is green, a real loss is red, independent
+     of what a rising/falling breadth score means elsewhere on this page. */
+  .trigger-proxy-row .up { color: var(--constructive); }
+  .trigger-proxy-row .down { color: var(--danger); }
+  .trigger-proxy-row .thin { font-style: italic; opacity: 0.65; }
+  .no-proxy-note { font-style: italic; opacity: 0.65; }
+
+  /* Breadth call vs. actual price trend panel. Same up/down = real price
+     gain/loss convention as .wl-change/.trigger-proxy-row (green = price
+     rose, red = price fell) — never a judgment on the breadth call itself. */
+  .dircheck-row { display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--panel-border); flex-wrap: wrap; }
+  .dircheck-row:last-of-type { border-bottom: none; }
+  .dircheck-category { font-weight: 700; width: 130px; flex-shrink: 0; padding-top: 2px; }
+  .dircheck-proxy { width: 110px; flex-shrink: 0; }
+  .dircheck-trend-col { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+  .dircheck-trend b { color: var(--text); }
+  .dircheck-trend .up { color: var(--constructive); font-weight: 700; }
+  .dircheck-trend .down { color: var(--danger); font-weight: 700; }
+  .dircheck-trend .thin { font-style: italic; opacity: 0.65; }
+
+  /* Drill-down: any row with this class is clickable to expand a detail
+     panel beneath it (lazy-fetched once, then just shown/hidden). Applies
+     to watchlist rows, cheapest-IV rows, and FRED cards alike — same
+     interaction pattern everywhere on the page rather than a different
+     gesture per panel. */
+  .clickable-row { cursor: pointer; }
+  .clickable-row:hover { background: rgba(255,255,255,0.035); }
+  .expand-hint { color: var(--text-dim); font-size: 11px; margin-left: 4px; transition: transform 0.15s ease; display: inline-block; }
+  .clickable-row.expanded .expand-hint { transform: rotate(90deg); }
+  .detail-panel {
+    padding: 14px 16px 16px;
+    border-bottom: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.18);
+  }
+  .detail-chart-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 10px 0 4px; }
+  .detail-chart-title:first-child { margin-top: 0; }
+  .detail-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; font-size: 11px; color: var(--text-dim); }
+  .detail-legend-item { display: flex; align-items: center; gap: 5px; }
+  .detail-legend-item .swatch-line { width: 14px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+
+  .fred-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .fred-card {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .fred-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .fred-desc { font-weight: 600; font-size: 13px; }
+  .fred-id { color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+  .fred-confidence-note { font-style: italic; opacity: 0.65; font-size: 11px; }
+  .fred-value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+  .fred-value { font-size: 20px; font-weight: 700; }
+  .fred-change { font-size: 12px; color: var(--text-dim); }
+  .fred-date { color: var(--text-dim); font-size: 11px; margin-top: 4px; }
+
+  .spread-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .spread-tile {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .spread-label { font-weight: 600; font-size: 13px; }
+  .spread-value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+  .spread-date { color: var(--text-dim); font-size: 11px; margin-top: 4px; }
+  .spread-note { color: var(--text-dim); font-size: 11px; margin-top: 6px; line-height: 1.4; }
+
+  .backtest-table { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; }
+  .bt-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border-bottom: 1px solid var(--panel-border); font-size: 13px; }
+  .bt-row:last-child { border-bottom: none; }
+  .bt-row.bt-header { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .bt-cat { flex: 1.5; min-width: 140px; }
+  .bt-call { width: 130px; }
+  .bt-n { width: 60px; text-align: right; }
+  .bt-avg { width: 90px; text-align: right; font-variant-numeric: tabular-nums; }
+  .bt-range { width: 140px; text-align: right; color: var(--text-dim); font-size: 12px; }
+  .bt-row.bt-thin { opacity: 0.6; }
+  .bt-thin-note { font-style: italic; font-size: 11px; color: var(--text-dim); }
+
+  .decision-panel { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; }
+  .decision-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .decision-controls label { font-size: 12px; color: var(--text-dim); }
+  .decision-select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+  }
+  .decision-symbol-name { font-size: 13px; color: var(--text-dim); }
+  .decision-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .decision-tile { background: var(--bg); border: 1px solid var(--panel-border); border-radius: 6px; padding: 10px 12px; }
+  .decision-tile-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 6px; }
+  .decision-tile-value { font-size: 16px; font-weight: 700; }
+  .decision-tile-sub { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .decision-tile.decision-missing .decision-tile-value { font-size: 12px; font-weight: 400; font-style: italic; color: var(--text-dim); }
+  .decision-read {
+    font-size: 13px; line-height: 1.6; color: var(--text); background: var(--bg);
+    border: 1px solid var(--panel-border); border-radius: 6px; padding: 12px 14px;
+  }
+  .decision-read .decision-caveat { color: var(--text-dim); font-size: 11px; font-style: italic; display: block; margin-top: 8px; }
+
+  .vix-headline {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 14px 18px; margin-bottom: 26px;
+  }
+  .vix-headline-value { font-size: 30px; font-weight: 700; line-height: 1; }
+  .vix-headline-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 4px; }
+  .vix-headline-rank { font-size: 14px; }
+  .vix-headline-read { flex: 1; min-width: 220px; font-size: 12px; color: var(--text-dim); }
+
+  .opp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .opp-card {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px; padding: 14px 16px;
+    position: relative;
+  }
+  .opp-card.opp-rank-1 { border-color: var(--constructive); }
+  .opp-card.opp-rank-2 { border-color: var(--accent); }
+  .opp-rank-badge {
+    position: absolute; top: -10px; left: 14px; background: var(--bg); border: 1px solid var(--panel-border);
+    border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .opp-card.opp-rank-1 .opp-rank-badge { color: var(--constructive); border-color: var(--constructive); }
+  .opp-card.opp-rank-2 .opp-rank-badge { color: var(--accent); border-color: var(--accent); }
+  .opp-symbol-row { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; margin-bottom: 10px; }
+  .opp-symbol { font-size: 20px; font-weight: 700; }
+  .opp-category { font-size: 12px; color: var(--text-dim); }
+  .opp-facts { display: flex; flex-direction: column; gap: 6px; font-size: 12px; margin-bottom: 10px; }
+  .opp-fact-label { color: var(--text-dim); display: inline-block; width: 88px; flex-shrink: 0; }
+  .opp-fact-row { display: flex; }
+  .opp-lean { font-weight: 600; }
+  .opp-lean.opp-lean-calls { color: var(--caution); }
+  .opp-lean.opp-lean-puts { color: var(--constructive); }
+  .opp-lean.opp-lean-flat { color: var(--text-dim); }
+  .opp-extended-note { color: var(--caution); font-size: 11px; font-style: italic; }
+  .opp-not-extended-note { color: var(--constructive); font-size: 11px; font-style: italic; }
+  .opp-why { font-size: 12px; line-height: 1.5; border-top: 1px solid var(--panel-border); padding-top: 8px; margin-top: 4px; }
+  .opp-rest-table { margin-top: 4px; }
+  .opp-rest-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--panel-border); font-size: 12px; color: var(--text-dim); }
+  .opp-rest-row:last-child { border-bottom: none; }
+  .opp-rest-row .opp-rest-symbol { color: var(--text); font-weight: 600; width: 60px; flex-shrink: 0; }
+
+  /* Panic Cycle Radar — reuses .opp-grid/.opp-card/.opp-rest-* for the same
+     card/list shell as the Opportunity Finder above it (same visual
+     language, different ranking basis), with its own set of classes only
+     for the parts that are genuinely panic-cycle-specific. */
+  .panic-card.panic-rank-1 { border-color: var(--danger); }
+  .panic-card.panic-rank-2 { border-color: var(--caution); }
+  .panic-card.panic-rank-1 .panic-rank-badge { color: var(--danger); border-color: var(--danger); }
+  .panic-card.panic-rank-2 .panic-rank-badge { color: var(--caution); border-color: var(--caution); }
+  .panic-rank-badge {
+    position: absolute; top: -10px; left: 14px; background: var(--bg); border: 1px solid var(--panel-border);
+    border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .panic-pct-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .panic-pct-value { font-size: 26px; font-weight: 700; }
+  .panic-pct-value.panic-pct-flagged { color: var(--danger); }
+  .panic-pct-value.panic-pct-elevated { color: var(--caution); }
+  .panic-pct-value.panic-pct-calm { color: var(--text-dim); }
+  .panic-pct-label { font-size: 11px; color: var(--text-dim); }
+  .panic-change-up { color: var(--danger); }
+  .panic-change-down { color: var(--constructive); }
+  .panic-threshold-note { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+  .panic-instruments { display: flex; flex-direction: column; gap: 4px; font-size: 12px; border-top: 1px solid var(--panel-border); padding-top: 8px; }
+  .panic-instrument-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  h2 { font-size: 15px; margin: 0 0 10px 0; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  #trend-section { margin-bottom: 26px; }
+  .trend-layout { display: flex; gap: 16px; flex-wrap: wrap; }
+  .trend-chart-wrap {
+    flex: 2; min-width: 320px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .trend-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+  .trend-legend-item { display: flex; align-items: center; gap: 5px; }
+  .trend-legend-item .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .movers-col {
+    flex: 1; min-width: 220px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .movers-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 8px; }
+  .mover-row { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--panel-border); font-size: 13px; }
+  .mover-row:last-child { border-bottom: none; }
+  .mover-up { color: var(--caution); font-weight: 600; white-space: nowrap; }
+  .mover-down { color: var(--constructive); font-weight: 600; white-space: nowrap; }
+  #alerts-panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .alert-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--panel-border); font-size: 13px;
+  }
+  .alert-row:last-child { border-bottom: none; }
+  .alert-row .meta { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .empty-note { color: var(--text-dim); font-size: 13px; padding: 6px 0; }
+
+  footer { margin-top: 28px; color: var(--text-dim); font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Socrates Live Desk</h1>
+    <div class="sub">Convexity opportunity scan — reads directly from Supabase, refreshes automatically</div>
+  </div>
+  <div id="status-line">
+    <span class="dot pending" id="status-dot"></span>
+    <span id="status-text">connecting…</span>
+    <button id="refresh-btn">Refresh now</button>
+  </div>
+</header>
+
+<div id="config-banner" style="display:none;">
+  <strong>Not configured yet.</strong> Open this file in a text editor and fill in
+  <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> near the top of the
+  <code>&lt;script&gt;</code> block — use the <em>anon</em> (public) key, never the
+  service_role key, since this file runs in your browser and that key is visible to
+  anyone who opens it. The RLS policies in <code>supabase_schema.sql</code> restrict the
+  anon key to read-only, so that's the correct key for this file. Save and reopen.
+</div>
+
+<div id="error-banner"></div>
+
+<div class="vix-headline" id="vix-headline"></div>
+
+<div id="opportunity-section" style="margin-bottom: 26px;">
+  <h2>Opportunity finder — where to buy premium right now</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Ranks every instrument with real IV data by three things together: its category has an
+    active or freshly-changed breadth call, its options are relatively cheap right now (cross-
+    sectionally, against everything else tracked), and its price hasn't already run far from its
+    own moving average (a simple "hasn't obviously peaked yet" check, not a scientific exhaustion
+    signal — read it as a flag to look closer, not a guarantee). Matched against the ~15-session
+    (~3 week) backtest evidence for that exact instrument and call, where enough history exists.
+    Top 2 are highlighted; the rest of the ranked field is listed below them. This narrows down
+    candidates — it does not tell you to trade one.
+  </div>
+  <div id="opportunity-panel"></div>
+</div>
+
+<div id="panic-radar-section" style="margin-bottom: 26px;">
+  <h2>Panic Cycle Radar — where the panic cycle signal is strongest</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Ranks every category by Socrates' own Panic Cycle % this week (<code>platform_breadth</code>'s
+    timing_array section, "Panic Cycle Signal Within 3 weeks" metric) — the same field that already
+    drives the volatility flag elsewhere on this page, shown here as a magnitude instead of a
+    boolean. Top 2 highlighted, cross-referenced with whichever optionable instrument tracks that
+    category so you can see the panic-cycle reading and today's premium (cheap/rich) side by side.
+    This does not know about specific calendar "target weeks" (a forward-looking Aggregate/Panic
+    Cycle density table) or per-instrument Monthly Pattern labels (Turning Back UP, Still Under
+    Pressure, etc.) — <code>platform_breadth.csv</code> doesn't carry either of those yet, so your
+    Execution Rules 2 and 3 aren't encoded here. Send a sample export of those report sections and
+    they can be added.
+  </div>
+  <div id="panic-radar-panel"></div>
+</div>
+
+<div id="dircheck-section" style="margin-bottom: 26px;">
+  <h2>Breadth call vs. actual price trend</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    For each category's current breadth call, this shows what its canonical price proxy has
+    actually done — trading above or below its own 50-day moving average, with the real number
+    of sessions behind that average shown honestly. <strong>This page deliberately does not map
+    a breadth call to a price direction</strong> — CAUTION/CONSTRUCTIVE/NEUTRAL are a composite of
+    net reversal bias, net high/low, and panic-cycle exposure (per <code>scorecard.py</code>), not
+    a forecast that price goes any particular way. Whether "CAUTION" means you'd expect this proxy
+    to rise or fall is your own Socrates/Elliott Wave interpretation to bring to this reading, not
+    something this dashboard asserts for you. Use this panel to check that interpretation against
+    what the price has actually been doing, not as a signal on its own.
+  </div>
+  <div id="dircheck-panel"></div>
+</div>
+
+<div id="trend-section">
+  <h2>6-week trend across markets</h2>
+  <div class="trend-layout">
+    <div class="trend-chart-wrap">
+      <div id="trend-chart"></div>
+      <div class="trend-legend" id="trend-legend"></div>
+    </div>
+    <div class="movers-col">
+      <div class="movers-title">Biggest movers this week</div>
+      <div id="movers-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="triggers-section" style="margin-bottom: 26px;">
+  <h2>Convexity watch — breadth event + relatively cheap IV</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Descriptive, not a signal to execute on: "watch" means this category's breadth call
+    crossed a threshold (or tripped the panic-cycle volatility flag) this week, AND its
+    optionable proxy is sitting in the cheaper half of everything currently tracked on IV.
+    That's the same pattern behind the FXE/IBIT read from earlier — cheap premium on a
+    category breadth just flagged. Price proxy figures (1wk/1mo % change, vs its own moving
+    average) are shown alongside so you can see whether the move already happened or hasn't
+    started — this page doesn't guess which.
+  </div>
+  <div class="trigger-panel" id="triggers-panel"></div>
+</div>
+
+<div id="decision-section" style="margin-bottom: 26px;">
+  <h2>Instrument decision panel</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Pick a specific tradeable instrument and see its category breadth call, today's IV/skew (and
+    rank once enough history exists), its own price trend, and what this exact symbol has actually
+    done historically after this call — side by side, so you don't have to cross-reference four
+    panels by hand. Defaults to FXE so the Euro/Yen worked example is one click away (switch to
+    FXY to compare). This reads the same data as the rest of the page; it does not compute
+    anything new and does not recommend a trade — see the caveat at the bottom of the panel.
+  </div>
+  <div class="decision-panel">
+    <div class="decision-controls">
+      <label for="decision-symbol-select">Instrument</label>
+      <select class="decision-select" id="decision-symbol-select"></select>
+      <span class="decision-symbol-name" id="decision-symbol-name"></span>
+    </div>
+    <div class="decision-grid" id="decision-grid"></div>
+    <div class="decision-read" id="decision-read"></div>
+  </div>
+</div>
+
+<div id="fred-section" style="margin-bottom: 26px;">
+  <h2>Macro series (FRED)</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Point-in-time rates, inflation, dollar, and vol data from the St. Louis Fed — click any card
+    for its full history. Fills the Japan/Euro 10-year yield gap Yahoo Finance couldn't (see
+    <code>market_data.py</code>'s docstring) — those two series are flagged below since their
+    exact FRED IDs weren't verified against live data.
+  </div>
+  <div class="spread-strip" id="fred-spreads-panel"></div>
+  <div class="fred-grid" id="fred-panel"></div>
+</div>
+
+<div id="cheapest-iv-section" style="margin-bottom: 26px;">
+  <h2>Cheapest IV across all markets</h2>
+  <div class="sub" style="margin-bottom: 8px;">Click a row for its full IV/skew history.</div>
+  <div class="cheapest-iv-panel" id="cheapest-iv-panel"></div>
+</div>
+
+<div class="grid" id="category-grid"></div>
+
+<div id="watchlist-section" style="margin-bottom: 26px;">
+  <h2>Instrument watchlist — price, volume &amp; moving averages</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    Sorted within each group by biggest 1-week move first. "vs 10d/20d/50d" compares latest
+    close to its own trailing moving average — <code>thin</code> means fewer sessions of
+    history exist than the window needs, so treat that average cautiously. "vs 50d" is also
+    the basis for the trend direction shown in "Breadth call vs. actual price trend" above.
+  </div>
+  <div class="sub" style="margin-bottom: 8px;">Click a row for its full price/volume history and moving-average lines.</div>
+  <div id="watchlist-panel"></div>
+</div>
+
+<div id="backtest-section" style="margin-bottom: 26px;">
+  <h2>Signal backtest — building</h2>
+  <div class="sub" style="margin-bottom: 12px;">
+    For each category+call combination: what its price proxy actually did over the following ~15
+    trading sessions, historically. <strong>Read the n column before the average.</strong> At 6
+    weeks of breadth history, most cells here have only 0-2 observations — not a pattern, just
+    not enough evidence yet. Rows with too few observations are dimmed and unsorted; this becomes
+    genuinely informative only as more weeks of <code>platform_breadth.csv</code> accumulate.
+  </div>
+  <div class="backtest-table" id="backtest-panel"></div>
+</div>
+
+<h2>Recent alerts</h2>
+<div id="alerts-panel"></div>
+
+<footer>
+  Nothing on this page is computed here — every number comes straight from
+  <code>v_scorecard_wow</code>, <code>alerts_sent</code>, <code>market_prices</code>,
+  <code>iv_snapshots</code>, <code>v_iv_rank_latest</code>, and
+  <code>v_price_moving_averages_latest</code> in your Supabase project (the same tables/views
+  the n8n workflows and local scripts read and write). Scores use the fixed formula in
+  <code>scorecard.py</code> / <code>v_scorecard</code>: 0.4×net reversal bias + 0.4×net
+  high/low + 0.2×panic-cycle exposure. CAUTION &gt; 8, CONSTRUCTIVE &lt; -8, otherwise
+  NEUTRAL. IV/skew come from <code>iv_snapshot.py</code> — see its docstring for what "skew"
+  does and doesn't mean here, and why its proxy symbols (FXE, IBIT) differ from the price
+  proxies above them (EURUSD=X, BTC-USD). IV rank is a real percentile computed by
+  <code>v_iv_rank_latest</code> from whatever <code>iv_snapshots</code> history has actually
+  accumulated — it labels itself "building history (n=…)" instead of a percentile until at
+  least 4 readings exist for that symbol, and gets more meaningful the more often you run
+  <code>update_iv.sh</code> (or <code>iv_snapshot.py</code> directly). The Convexity
+  Watch panel combines the same <code>v_scorecard_wow</code> call-crossing/volatility-flag
+  data with each category's IV proxy's cross-sectional cheap/expensive rank (same ranking
+  the Cheapest IV panel uses) — a category is only flagged "watch" when BOTH a fresh breadth
+  event happened this week AND its IV proxy is in the cheaper half of everything tracked. It
+  never asserts a price direction — the breadth score is a composite (net reversal bias,
+  net high/low, panic-cycle exposure per <code>scorecard.py</code>), not a directional
+  forecast — and it never recommends a trade; it only points out where a pattern worth a
+  closer look is sitting. The instrument
+  watchlist's moving averages and weekly/monthly % change come from
+  <code>v_price_moving_averages_latest</code> (backed by <code>v_price_moving_averages</code>
+  and <code>v_price_change_windows</code>) — display names, groups, and confidence tags come
+  from the <code>instruments</code> table, which mirrors <code>market_data.py</code>'s
+  <code>INSTRUMENT_UNIVERSE</code>; a non-"high" confidence tag means that ticker mapping
+  wasn't verified against live Yahoo data — see that file's docstring before trusting it for
+  sizing. Any row in the Cheapest IV or Instrument Watchlist panels, and any Macro Series
+  (FRED) card, can be clicked to expand its full history as a chart — fetched on demand
+  (<code>iv_snapshots</code>, <code>v_price_moving_averages</code>, or <code>fred_series</code>
+  filtered to that one symbol/series) rather than loaded upfront for everything. Price and
+  volume are always drawn as two separate charts, never one axis with two scales — same for
+  IV and skew. An expanded row stays open across the 60-second auto-refresh (re-fetched fresh
+  each time) rather than silently collapsing. Macro Series (FRED) data comes from
+  <code>fred_series</code>/<code>fred_series_meta</code>, pulled by <code>fred_data.py</code>
+  from the St. Louis Fed's public fredgraph.csv endpoint — see that file's docstring for the
+  same confidence-tagging discipline as <code>market_data.py</code>. Signal Backtest reads
+  <code>v_signal_backtest_summary</code>, which joins each week's breadth call to its price
+  proxy's return over the following ~15 sessions via <code>price_proxy_map</code> — read the
+  n column before the average; see the view's comment in <code>supabase_schema.sql</code> for
+  why. The Instrument Decision Panel pulls the same reads together per symbol rather than one
+  canonical instrument per category: category breadth from <code>v_scorecard_wow</code>, IV/skew/
+  rank from <code>iv_snapshots</code>/<code>v_iv_rank_latest</code>, this symbol's own price
+  trend from <code>v_price_moving_averages_latest</code>, and this symbol's own backtest history
+  from <code>v_instrument_backtest_summary</code> (same idea as Signal Backtest above, but keyed
+  by <code>iv_proxy_map</code> so FXE and FXY — or any two instruments in the same category —
+  get their own separate numbers instead of sharing one). Currencies covers five real,
+  optionable ETFs now (FXE, FXY, FXB, FXF, FXC), not just FXE — see
+  <code>iv_snapshot.py</code>'s docstring for why SGD/TWD/INR/CNY stay spot-only. Like every
+  other panel on this page, it states facts, never a recommendation. The VIX headline card at
+  the top of the page reads <code>v_fred_series_rank_latest</code> — VIX's own reading against
+  its OWN history's percentile (same <code>percent_rank()</code> formula as IV rank, applied to
+  <code>fred_series</code> instead of <code>iv_snapshots</code>), never compared directly
+  against any single instrument's IV, since different asset classes sit on structurally
+  different volatility scales. The Opportunity Finder below it ranks every instrument with both
+  a live/fresh breadth signal and real IV data by a composite of three things: its cross-sectional
+  cheap-IV rank, a small penalty if its category's call didn't actually change this week, and a
+  small penalty if price is already more than 5% from its own 20-day moving average
+  (<code>OPP_EXTENDED_THRESHOLD_PCT</code>) — all three genuinely combine into one score, rather
+  than the first factor alone deciding and the other two never mattering. It shows the top 2 as
+  full cards and the rest of the field that still qualifies below them; like every other panel
+  here it narrows the field and states facts, it does not pick a trade. Skew across the Cheapest
+  IV panel, category cards, and Decision Panel now reads in plain language ("puts expensive ·
+  calls cheap" instead of a bare signed number) via one shared <code>skewLeanLabel()</code>
+  function, so all three panels describe the same skew the same way; the raw number is still
+  there as a hover title. A "Breadth call vs. actual price trend" panel near the top shows each
+  active category's canonical price proxy trading above/below its own 50-day moving average
+  (<code>sma_50</code>/<code>observations_50</code>, same "however much real history actually
+  exists" honesty as the 10d/20d averages) — deliberately without asserting what direction the
+  breadth call itself implies, since CAUTION/CONSTRUCTIVE/NEUTRAL are a composite (net reversal
+  bias, net high/low, panic-cycle exposure), not a price forecast; reconciling "does the measured
+  trend match what I expected this call to mean" is left to your own Socrates/Elliott Wave read.
+  The Instrument Watchlist and its drill-down chart now show a 50-day average alongside 10d/20d
+  for the same reason. A "Panic Cycle Radar" panel below the Opportunity Finder ranks every
+  category by <code>panic_cycle_pct</code> this week — Socrates' own "Panic Cycle Signal Within 3
+  weeks" reading from <code>platform_breadth</code>'s timing_array section, the same field that
+  already drives the <code>volatility_flag</code> boolean (&gt;20%) elsewhere on this page, shown
+  here as an actual magnitude instead. Top 2 categories are highlighted and cross-referenced with
+  their mapped optionable instrument's current IV/skew, so a live panic-cycle reading and a cheap
+  premium can be seen together; it doesn't track forward-looking "target week" calendars or
+  per-instrument Monthly Pattern labels, since <code>platform_breadth.csv</code> doesn't carry
+  either yet. <code>market_data.py</code>'s tracked universe now includes IBIT (Crypto) alongside
+  BTC-USD/ETH-USD, and <code>fred_data.py</code> now pulls three market-stress gauges alongside
+  rates/CPI/VIX/dollar-index: <code>BAMLH0A0HYM2</code> (ICE BofA high-yield credit spread),
+  <code>NFCI</code> (Chicago Fed National Financial Conditions Index), and <code>STLFSI4</code>
+  (St. Louis Fed Financial Stress Index) — all free, no-key FRED series via the same
+  fredgraph.csv endpoint already in use; the MOVE index (bond-market VIX) isn't included since
+  it's a proprietary ICE BofA series with no free fetchable source. Three tiles above the Macro
+  Series (FRED) cards — US 2s10s, France−Germany 10Y, Italy−Germany 10Y — come from
+  <code>v_fred_spreads_latest</code>, a plain subtraction of already-tracked FRED levels
+  (<code>DGS10</code>/<code>DGS2</code> and new Germany/France/Italy OECD 10-year yields), each
+  spread's own latest reading computed independently since the US leg updates daily and the
+  European legs update monthly. VVIX, the Cboe 1-Month Implied Correlation Index, and VSTOXX
+  joined the tracked instrument universe the same way IBIT did; CDX IG/HY and iTraxx Europe Main
+  have no free source anywhere found (IHS Markit/S&P Global-administered, paid-terminal only) —
+  flagged, not faked. Auto-refreshes every 60 seconds — this is a static file, not a hosted page,
+  so it only updates while you keep the tab open.
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Fill these in once, then save and reopen this file. ------------
+  const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";       // e.g. https://xxxx.supabase.co
+  const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";       // Project Settings -> API -> anon/public key
+  // -----------------------------------------------------------------------
+
+  const REFRESH_MS = 60000;
+
+  // Bulk-fetched data the decision panel re-renders from when the dropdown
+  // changes, without firing a fresh round of queries — set at the end of
+  // every refresh(), read by renderDecisionPanel().
+  let lastSnapshot = null;
+
+  const CATEGORY_ORDER = ["Stocks", "Currencies", "Stock Indices", "Bonds", "Commodities", "ETFs", "Crypto"];
+  // market_prices.py's spot proxies — what actually moved.
+  const CATEGORY_PROXIES = {
+    "Stocks": ["QQQ"],
+    "Stock Indices": ["QQQ"],
+    "Currencies": ["EURUSD=X"],
+    "Commodities": ["USO", "GLD"],
+    "Bonds": ["HYG", "TLT"],
+    "Crypto": ["BTC-USD"],
+    "ETFs": [],
+  };
+  // iv_snapshot.py's listed-options proxies — a DIFFERENT symbol set on
+  // purpose: EUR/USD spot and BTC-USD spot don't have standard listed
+  // options, so this uses the nearest optionable equivalent (FXE, IBIT)
+  // instead. See iv_snapshot.py's docstring for why. Keep in sync with
+  // that file's OPTIONABLE_PROXIES and supabase_schema.sql's iv_proxy_map
+  // if either ever changes.
+  const IV_PROXIES = {
+    "Stocks": ["QQQ"],
+    "Stock Indices": ["QQQ"],
+    "Currencies": ["FXE"],
+    "Commodities": ["USO", "GLD"],
+    "Bonds": ["HYG", "TLT"],
+    "Crypto": ["IBIT"],
+    "ETFs": [],
+  };
+  // Purely a line-identity palette for the trend chart — deliberately
+  // distinct from the amber/green/grey used for CAUTION/CONSTRUCTIVE/NEUTRAL
+  // elsewhere on this page, so a category's line color never gets read as a
+  // call state. Call state is shown separately, as each point's fill color.
+  // Validated colorblind-safe categorical palette (dataviz skill,
+  // references/palette.md — dark-mode set, checked with
+  // scripts/validate_palette.js --mode dark: worst adjacent-pair CVD
+  // Delta E 8.4, worst normal-vision Delta E 19.3, all checks pass).
+  // Assigned in fixed order, never cycled/generated.
+  const CATEGORY_COLORS = {
+    "Stocks": "#3987e5",
+    "Currencies": "#d95926",
+    "Stock Indices": "#199e70",
+    "Bonds": "#c98500",
+    "Commodities": "#d55181",
+    "ETFs": "#008300",
+    "Crypto": "#9085e9",
+  };
+
+  // Same validated palette, a second fixed assignment for the instrument
+  // watchlist's groups (these are a different partition of the data than
+  // the breadth categories above, so they get their own legend rather than
+  // reusing/aliasing CATEGORY_COLORS's mapping).
+  // "FX" (spot rates, e.g. EURUSD=X) sits right next to "FX-ETF" (the
+  // listed, optionable currency ETFs — FXE/FXY/FXB/FXF/FXC) deliberately:
+  // they're the same underlying currencies, just two different ways of
+  // getting exposure (spot has no options; the ETFs do, which is what
+  // iv_snapshot.py actually tracks IV/skew on). Previously "FX-ETF" wasn't
+  // in this list at all, so it fell through to the unordered/uncolored
+  // tail of the watchlist instead of sitting next to its spot-rate
+  // sibling — fixed here, not a new group, just giving the existing one
+  // its place.
+  const GROUP_ORDER = ["Tech/Momentum", "Global Indices", "Commodities", "Rates", "Volatility", "FX", "FX-ETF", "Crypto"];
+  const GROUP_COLORS = {
+    "Tech/Momentum": "#3987e5",
+    "Global Indices": "#d95926",
+    "Commodities": "#199e70",
+    "Rates": "#c98500",
+    "Volatility": "#d55181",
+    "FX": "#008300",
+    "FX-ETF": "#5fb85a",
+    "Crypto": "#9085e9",
+  };
+
+  // Checked by shape (starts with https://, key looks non-trivial), not by
+  // comparing against the placeholder text above — a plain find-and-replace
+  // across this file (a very normal way to fill these in) would otherwise
+  // silently change this check too and leave it permanently stuck reporting
+  // "not configured" even once real values are in place.
+  const configured = /^https:\/\/.+/.test(SUPABASE_URL.trim()) && SUPABASE_ANON_KEY.trim().length > 20;
+
+  const $ = (id) => document.getElementById(id);
+  const statusDot = $("status-dot");
+  const statusText = $("status-text");
+  const errorBanner = $("error-banner");
+  const configBanner = $("config-banner");
+
+  if (!configured) {
+    configBanner.style.display = "block";
+    statusDot.className = "dot bad";
+    statusText.textContent = "not configured";
+    $("refresh-btn").disabled = true;
+    return;
+  }
+
+  async function fetchJSON(pathAndQuery) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${pathAndQuery} -> HTTP ${res.status} ${res.statusText}${body ? `: ${body}` : ""}`);
+    }
+    return res.json();
+  }
+
+  function sparklineSVG(values, width, height) {
+    if (!values || values.length < 2) return "";
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    const step = width / (values.length - 1);
+    const points = values.map((v, i) => {
+      const x = (i * step).toFixed(1);
+      const y = (height - ((v - min) / range) * height).toFixed(1);
+      return `${x},${y}`;
+    }).join(" ");
+    const last = values[values.length - 1];
+    const zeroY = (height - ((0 - min) / range) * height).toFixed(1);
+    // Hardcoded hex, not var(--...): SVG presentation-attribute support for
+    // CSS custom properties is inconsistent enough across browsers/webviews
+    // that it's not worth risking on something this visible.
+    const strokeColor = last > 0 ? "#e0a339" : last < 0 ? "#3ea86a" : "#5b6478";
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <line x1="0" y1="${zeroY}" x2="${width}" y2="${zeroY}" stroke="#232a3b" stroke-width="1" stroke-dasharray="2,2"/>
+      <polyline points="${points}" fill="none" stroke="${strokeColor}" stroke-width="1.5"/>
+    </svg>`;
+  }
+
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Turns a raw symbol ("EURUSD=X", "^VIX", "000001.SS") into something
+  // safe to use as an HTML id — used only for wiring a row to its
+  // drill-down detail panel; the real symbol (for API calls) always comes
+  // from the row's data-symbol attribute, never reconstructed from this.
+  function symbolId(sym) {
+    return String(sym).replace(/[^A-Za-z0-9_-]/g, "_");
+  }
+
+  // ---- Drill-down detail charts (lazy-rendered inside an expanded row) ----
+  // Generic single-series trend line — IV history, skew history, one FRED
+  // series. Under 2 real points there's nothing to draw a line between,
+  // so this says so rather than rendering an empty/misleading chart.
+  function singleLineChartSVG(rows, xKey, yKey, color, width, height) {
+    width = width || 520; height = height || 110;
+    const valid = rows.filter((r) => r[yKey] !== null && r[yKey] !== undefined);
+    if (valid.length < 2) {
+      return `<div class="empty-note">Not enough history yet to chart (n=${valid.length}).</div>`;
+    }
+    const values = valid.map((r) => Number(r[yKey]));
+    const minV = Math.min(...values), maxV = Math.max(...values);
+    const pad = (maxV - minV) * 0.12 || Math.abs(maxV) * 0.05 || 1;
+    const yMin = minV - pad, yMax = maxV + pad;
+    const padL = 44, padR = 14, padT = 10, padB = 20;
+    const plotW = width - padL - padR, plotH = height - padT - padB;
+    const xPos = (i) => padL + (i / (valid.length - 1)) * plotW;
+    const yPos = (v) => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+    const pts = valid.map((r, i) => ({ x: xPos(i), y: yPos(Number(r[yKey])) }));
+    const d = "M " + pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ");
+    const last = pts[pts.length - 1];
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;height:auto;display:block;">
+      <path d="${d}" fill="none" stroke="${color}" stroke-width="1.75"/>
+      <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3" fill="${color}"/>
+      <text x="${padL}" y="${height - 4}" font-size="9" fill="#8791a8">${escapeHTML(valid[0][xKey])}</text>
+      <text x="${width - padR}" y="${height - 4}" text-anchor="end" font-size="9" fill="#8791a8">${escapeHTML(valid[valid.length - 1][xKey])}</text>
+      <text x="${width - padR}" y="${padT + 8}" text-anchor="end" font-size="11" fill="${color}" font-weight="700">${values[values.length - 1].toFixed(2)}</text>
+    </svg>`;
+  }
+
+  // Price + its own moving averages, all the SAME unit (price) — one axis
+  // is correct here. The "never dual-axis" rule is about combining two
+  // DIFFERENT-unit measures (price and volume) on one chart, which this
+  // deliberately does NOT do — volume gets its own chart below.
+  function priceWithMASVG(rows, width, height) {
+    width = width || 520; height = height || 150;
+    const valid = rows.filter((r) => r.close !== null && r.close !== undefined);
+    if (valid.length < 2) {
+      return `<div class="empty-note">Not enough price history yet to chart (n=${valid.length}).</div>`;
+    }
+    const allVals = [];
+    valid.forEach((r) => {
+      allVals.push(Number(r.close));
+      if (r.sma_10 !== null && r.sma_10 !== undefined) allVals.push(Number(r.sma_10));
+      if (r.sma_20 !== null && r.sma_20 !== undefined) allVals.push(Number(r.sma_20));
+      if (r.sma_50 !== null && r.sma_50 !== undefined) allVals.push(Number(r.sma_50));
+    });
+    const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+    const pad = (maxV - minV) * 0.08 || 1;
+    const yMin = minV - pad, yMax = maxV + pad;
+    const padL = 52, padR = 14, padT = 10, padB = 20;
+    const plotW = width - padL - padR, plotH = height - padT - padB;
+    const xPos = (i) => padL + (i / (valid.length - 1)) * plotW;
+    const yPos = (v) => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+    function lineFor(key, color, strokeWidth, dashArray) {
+      const pts = [];
+      valid.forEach((r, i) => {
+        if (r[key] === null || r[key] === undefined) return;
+        pts.push(`${xPos(i).toFixed(1)},${yPos(Number(r[key])).toFixed(1)}`);
+      });
+      if (pts.length < 2) return "";
+      return `<path d="M ${pts.join(" L ")}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ""}/>`;
+    }
+
+    const closeLine = lineFor("close", "#3987e5", 2, null);
+    const sma10Line = lineFor("sma_10", "#d95926", 1.5, "4,3");
+    const sma20Line = lineFor("sma_20", "#199e70", 1.5, "1,3");
+    const sma50Line = lineFor("sma_50", "#9085e9", 1.5, "6,2");
+
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;height:auto;display:block;">
+      ${closeLine}${sma10Line}${sma20Line}${sma50Line}
+      <text x="${padL}" y="${height - 4}" font-size="9" fill="#8791a8">${escapeHTML(valid[0].date)}</text>
+      <text x="${width - padR}" y="${height - 4}" text-anchor="end" font-size="9" fill="#8791a8">${escapeHTML(valid[valid.length - 1].date)}</text>
+    </svg>
+    <div class="detail-legend">
+      <span class="detail-legend-item"><span class="swatch-line" style="border-color:#3987e5"></span>close</span>
+      <span class="detail-legend-item"><span class="swatch-line" style="border-color:#d95926;border-top-style:dashed"></span>10d SMA</span>
+      <span class="detail-legend-item"><span class="swatch-line" style="border-color:#199e70;border-top-style:dotted"></span>20d SMA</span>
+      <span class="detail-legend-item"><span class="swatch-line" style="border-color:#9085e9;border-top-style:dashed"></span>50d SMA</span>
+    </div>`;
+  }
+
+  // Volume gets its own separate small-multiple chart — never overlaid on
+  // price above (different unit/scale; that combination is exactly the
+  // dual-axis mistake this project avoids elsewhere too, e.g. the trend
+  // chart never mixes score and price on one axis).
+  function volumeBarSVG(rows, width, height) {
+    width = width || 520; height = height || 70;
+    const valid = rows.filter((r) => r.volume !== null && r.volume !== undefined);
+    if (valid.length < 2) {
+      return `<div class="empty-note">No volume history available for this symbol.</div>`;
+    }
+    const values = valid.map((r) => Number(r.volume));
+    const maxV = Math.max(...values) || 1;
+    const padL = 52, padR = 14, padT = 6, padB = 18;
+    const plotW = width - padL - padR, plotH = height - padT - padB;
+    const barW = Math.max(1, plotW / valid.length - 1);
+    const bars = valid.map((r, i) => {
+      const x = padL + (i / valid.length) * plotW;
+      const h = (Number(r.volume) / maxV) * plotH;
+      const y = padT + plotH - h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="#5b6478"/>`;
+    }).join("");
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%;height:auto;display:block;">
+      ${bars}
+      <text x="${padL}" y="${height - 4}" font-size="9" fill="#8791a8">${escapeHTML(valid[0].date)}</text>
+      <text x="${width - padR}" y="${height - 4}" text-anchor="end" font-size="9" fill="#8791a8">${escapeHTML(valid[valid.length - 1].date)}</text>
+    </svg>`;
+  }
+
+  // Real multi-week trend chart — score per category across every week_of
+  // present in v_scorecard_wow, not just the small per-card sparkline.
+  // Honest about gaps: a category missing a week just breaks its line for
+  // that stretch rather than interpolating a value that was never reported.
+  function trendChartSVG(scorecardRows) {
+    const weeks = Array.from(new Set(scorecardRows.map((r) => r.week_of))).sort();
+    if (weeks.length < 2) {
+      return { svg: `<div class="empty-note">Need at least 2 weeks of data in Supabase to draw a trend — currently ${weeks.length}.</div>`, legend: "" };
+    }
+
+    const byCategory = {};
+    for (const r of scorecardRows) {
+      (byCategory[r.category] = byCategory[r.category] || {})[r.week_of] = r;
+    }
+
+    const W = 760, H = 260, padL = 34, padR = 16, padT = 14, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    const allScores = scorecardRows.map((r) => Number(r.score));
+    let yMin = Math.min(-10, ...allScores), yMax = Math.max(10, ...allScores);
+    const yPad = (yMax - yMin) * 0.12 || 1;
+    yMin -= yPad; yMax += yPad;
+
+    const xPos = (i) => padL + (i / (weeks.length - 1)) * plotW;
+    const yPos = (v) => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+    function refLine(value, label, dashed) {
+      const y = yPos(value).toFixed(1);
+      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#2a3145" stroke-width="1"${dashed ? ' stroke-dasharray="4,3"' : ""}/>
+        <text x="${padL - 4}" y="${(Number(y) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#8791a8">${label}</text>`;
+    }
+    const refLines = refLine(8, "8", true) + refLine(-8, "-8", true) + refLine(0, "0", false);
+
+    const xLabels = weeks.map((w, i) =>
+      `<text x="${xPos(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9" fill="#8791a8">${escapeHTML(w.slice(5))}</text>`
+    ).join("");
+
+    let lines = "";
+    let legendItems = "";
+    for (const category of CATEGORY_ORDER) {
+      const hist = byCategory[category];
+      if (!hist) continue;
+      const color = CATEGORY_COLORS[category] || "#8791a8";
+      const pts = [];
+      weeks.forEach((w, i) => {
+        const row = hist[w];
+        if (!row) return;
+        pts.push({ x: xPos(i), y: yPos(Number(row.score)), row });
+      });
+      if (pts.length >= 2) {
+        const d = "M " + pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ");
+        lines += `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9"/>`;
+      }
+      for (const p of pts) {
+        const callColor = p.row.call === "CAUTION" ? "#e0a339" : p.row.call === "CONSTRUCTIVE" ? "#3ea86a" : "#5b6478";
+        lines += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${callColor}" stroke="${color}" stroke-width="1.5">` +
+          `<title>${escapeHTML(category)} — week of ${escapeHTML(p.row.week_of)} — score ${p.row.score} (${escapeHTML(p.row.call)})</title></circle>`;
+      }
+      if (pts.length) {
+        legendItems += `<span class="trend-legend-item"><span class="swatch" style="background:${color}"></span>${escapeHTML(category)}</span>`;
+      }
+    }
+
+    const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="max-width:100%;height:auto;display:block;">${refLines}${lines}${xLabels}</svg>`;
+    return { svg, legend: legendItems };
+  }
+
+  // Point-in-time "what moved most" scan — the actual convexity-scan view:
+  // categories whose score swung hardest since last week, and whether that
+  // swing crossed a call threshold (CAUTION/CONSTRUCTIVE/NEUTRAL boundary).
+  // Uses v_scorecard_wow's own score_change_from_prior_week — not recomputed
+  // here, so it can never drift from the same number the alert workflow uses.
+  function renderMovers(scorecardRows) {
+    const weeks = Array.from(new Set(scorecardRows.map((r) => r.week_of))).sort();
+    const latestWeek = weeks[weeks.length - 1];
+    if (!latestWeek) return `<div class="empty-note">No data yet.</div>`;
+
+    const latestRows = scorecardRows.filter((r) =>
+      r.week_of === latestWeek && r.score_change_from_prior_week !== null && r.score_change_from_prior_week !== undefined
+    );
+    if (!latestRows.length) {
+      return `<div class="empty-note">Not enough history yet — need a prior week for at least one category.</div>`;
+    }
+
+    const sorted = [...latestRows].sort((a, b) =>
+      Math.abs(Number(b.score_change_from_prior_week)) - Math.abs(Number(a.score_change_from_prior_week))
+    );
+
+    return sorted.map((r) => {
+      const delta = Number(r.score_change_from_prior_week);
+      const dir = delta > 0 ? "▲" : delta < 0 ? "▼" : "—";
+      const cls = delta > 0 ? "mover-up" : delta < 0 ? "mover-down" : "";
+      const crossed = r.prior_call && r.prior_call !== r.call;
+      const crossedNote = crossed
+        ? `<div style="opacity:0.65;font-size:11px;">${escapeHTML(r.prior_call)} → ${escapeHTML(r.call)}</div>`
+        : "";
+      return `<div class="mover-row">
+        <span><b>${escapeHTML(r.category)}</b>${crossedNote}</span>
+        <span class="${cls}">${dir} ${Math.abs(delta).toFixed(2)}</span>
+      </div>`;
+    }).join("");
+  }
+
+  function renderTrend(scorecardRows) {
+    const { svg, legend } = trendChartSVG(scorecardRows);
+    $("trend-chart").innerHTML = svg;
+    $("trend-legend").innerHTML = legend;
+    $("movers-list").innerHTML = renderMovers(scorecardRows);
+  }
+
+  // Threshold below which an IV percentile is more noise than signal — see
+  // v_iv_rank_latest's comment in supabase_schema.sql for why. Below this,
+  // the dashboard shows the observation count instead of a rank it can't
+  // yet back up.
+  const MIN_OBSERVATIONS_FOR_RANK = 4;
+
+  function ivRankBadge(rank) {
+    if (!rank || rank.observations < MIN_OBSERVATIONS_FOR_RANK) {
+      const n = rank ? rank.observations : 0;
+      return `<span class="iv-rank-thin">building history (n=${n})</span>`;
+    }
+    const pct = Number(rank.iv_percentile);
+    const cls = pct <= 25 ? "iv-rank-cheap" : pct >= 75 ? "iv-rank-rich" : "iv-rank-mid";
+    const label = pct <= 25 ? " cheap" : pct >= 75 ? " rich" : "";
+    return `<span class="${cls}">${pct.toFixed(0)}th pct${label} (n=${rank.observations})</span>`;
+  }
+
+  // Same badge, same MIN_OBSERVATIONS_FOR_RANK gate and cheap/rich coloring
+  // as ivRankBadge, but for a FRED series (v_fred_series_rank_latest) —
+  // shares the exact same percentile-vs-own-history method, not a
+  // coincidence: "is this reading cheap or rich vs its own normal range"
+  // is the same question whether the series is an option's IV or VIX
+  // itself.
+  function fredRankBadge(rank) {
+    if (!rank || rank.observations < MIN_OBSERVATIONS_FOR_RANK) {
+      const n = rank ? rank.observations : 0;
+      return `<span class="iv-rank-thin">building history (n=${n})</span>`;
+    }
+    const pct = Number(rank.value_percentile);
+    const cls = pct <= 25 ? "iv-rank-cheap" : pct >= 75 ? "iv-rank-rich" : "iv-rank-mid";
+    const label = pct <= 25 ? " low" : pct >= 75 ? " high" : "";
+    return `<span class="${cls}">${pct.toFixed(0)}th pct${label} (n=${rank.observations})</span>`;
+  }
+
+  // Turns a raw put_call_skew_5pct number into the plain-language read a
+  // non-options-native user actually wants: "which side is cheap right
+  // now," not a signed number they have to mentally translate. Definition
+  // (matches iv_snapshot.py exactly): skew = otm_put_iv - otm_call_iv.
+  // Positive -> puts priced richer -> calls are the cheaper side to buy
+  // convexity on. Negative -> calls priced richer -> puts are the cheaper
+  // side. The raw number is kept, small, alongside the words — useful for
+  // "how lopsided," never the headline. Single source of truth so the
+  // Cheapest IV panel, Convexity Watch, and the Decision Panel all say the
+  // same thing the same way (previously each spot only showed the signed
+  // number, which is what prompted this).
+  function skewLeanLabel(skew) {
+    const n = Number(skew);
+    const cls = n > 0 ? "skew-positive" : n < 0 ? "skew-negative" : "";
+    const numText = `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
+    const words = n > 0 ? "puts expensive · calls cheap" : n < 0 ? "calls expensive · puts cheap" : "calls & puts evenly priced";
+    return { cls, numText, words };
+  }
+
+  // Headline VIX card — promoted out of the Macro Series grid because the
+  // user asked for overall market volatility to be front-and-center, not
+  // one card among many. Deliberately does NOT compare VIX's level against
+  // any single instrument's own IV (see v_fred_series_rank's comment in
+  // supabase_schema.sql for why that comparison would mislead) — this is
+  // its own regime gauge, read on its own.
+  function renderVixHeadline(fredRows, fredRankBySeries) {
+    const el = $("vix-headline");
+    const vix = fredRows.find((r) => r.series_id === "VIXCLS");
+    if (!vix) {
+      el.innerHTML = `<div class="empty-note">No VIX reading yet — run fred_data.py, then push_to_supabase.py, to populate this.</div>`;
+      return;
+    }
+    const rank = fredRankBySeries["VIXCLS"];
+    const change = vix.change_from_prior_reading === null || vix.change_from_prior_reading === undefined
+      ? "" : `<span style="color:var(--text-dim)">${Number(vix.change_from_prior_reading) >= 0 ? "+" : ""}${Number(vix.change_from_prior_reading).toFixed(2)} vs prior reading</span>`;
+    let readText;
+    if (!rank || rank.observations < MIN_OBSERVATIONS_FOR_RANK) {
+      readText = `Overall market volatility (VIX). Not enough history yet (n=${rank ? rank.observations : 0}) to say whether today's level is cheap or rich against its own range — keep running fred_data.py daily.`;
+    } else {
+      const pct = Number(rank.value_percentile);
+      const regime = pct <= 25 ? "quiet — in the cheaper quarter of its own recent range" : pct >= 75 ? "elevated — in the richer quarter of its own recent range" : "unremarkable — mid-range against its own recent history";
+      readText = `Overall market volatility is ${regime}. This is a market-wide regime read, not a comparison to any one instrument's own IV — different asset classes sit on different volatility scales by nature (see the Opportunity Finder / Decision Panel for instrument-level reads).`;
+    }
+    el.innerHTML = `
+      <div>
+        <div class="vix-headline-label">VIX &middot; market volatility</div>
+        <div class="vix-headline-value">${Number(vix.value).toFixed(2)}</div>
+        <div class="vix-headline-rank">${fredRankBadge(rank)} ${change}</div>
+      </div>
+      <div class="vix-headline-read">${readText}</div>
+    `;
+  }
+
+  // Cross-sectional view: every symbol currently in iv_snapshots, ranked by
+  // today's ATM IV ascending. Deliberately separate from IV rank (which is
+  // a symbol's IV against its OWN history over time) — this answers "which
+  // of everything I track is cheapest RIGHT NOW", useful even at n=1 per
+  // symbol since it doesn't need any history to accumulate first. Shows
+  // each row's own date so a stale (not-today) snapshot is visible rather
+  // than silently compared as if it were current.
+  function renderCheapestIV(latestIVBySymbol, latestIVRankBySymbol, symbolToCategories) {
+    const rows = Object.values(latestIVBySymbol);
+    const panel = $("cheapest-iv-panel");
+    if (!rows.length) {
+      panel.innerHTML = `<div class="empty-note">No IV snapshots yet — run iv_snapshot.py (or update_iv.sh) to populate this.</div>`;
+      return;
+    }
+    const sorted = [...rows].sort((a, b) => Number(a.atm_iv_avg) - Number(b.atm_iv_avg));
+    panel.innerHTML = sorted.map((r, i) => {
+      const cats = (symbolToCategories[r.symbol] || []).join(" / ") || "no category mapping";
+      const lean = skewLeanLabel(r.put_call_skew_5pct);
+      const rank = latestIVRankBySymbol[r.symbol];
+      const sid = symbolId(r.symbol);
+      return `<div class="civ-row clickable-row ${i < 3 ? "civ-cheapest" : ""}" data-symbol="${escapeHTML(r.symbol)}" id="row-cheapest-iv-panel-${sid}">
+        <span class="civ-rank">${i + 1}</span>
+        <span class="civ-symbol">${escapeHTML(r.symbol)}</span>
+        <span class="civ-category">${escapeHTML(cats)} <span style="opacity:0.6">(${escapeHTML(r.date)})</span></span>
+        <span class="civ-iv">${Number(r.atm_iv_avg).toFixed(2)}%</span>
+        <span class="civ-skew ${lean.cls}" title="raw skew ${lean.numText}">${lean.words}</span>
+        <span class="civ-rank-badge">${ivRankBadge(rank)}</span>
+        <span class="expand-hint">▸</span>
+      </div>
+      <div class="detail-panel" id="detail-cheapest-iv-panel-${sid}" style="display:none"></div>`;
+    }).join("");
+    reopenExpanded("cheapest-iv-panel", loadCheapestIVDetail);
+  }
+
+  // "Watch" panel — the combined breadth+price+IV read the dashboard didn't
+  // have before. Deliberately does NOT assert a price direction for a
+  // CAUTION/CONSTRUCTIVE call (the score is a breadth composite — net
+  // reversal bias + net high/low + panic-cycle exposure per scorecard.py,
+  // not a directional price forecast) and does NOT recommend a trade. It
+  // only surfaces a pattern: this category's breadth call just moved AND
+  // its optionable proxy is relatively cheap on IV right now, cross-
+  // sectionally, against everything else tracked. Whether that's
+  // actionable is a judgment call this page leaves entirely to you.
+  //
+  // "Cheap right now" reuses the SAME cross-sectional rank the Cheapest IV
+  // panel shows (rank by today's ATM IV among all currently-snapshotted
+  // symbols) rather than IV rank-vs-own-history, because most symbols only
+  // have 1 IV reading so far — IV rank would show "building history" for
+  // nearly everything. This still works meaningfully at n=1 per symbol,
+  // same reasoning as the Cheapest IV panel itself.
+  function ivCheapestRankMap(latestIVBySymbol) {
+    const sorted = Object.values(latestIVBySymbol).sort((a, b) => Number(a.atm_iv_avg) - Number(b.atm_iv_avg));
+    const map = {};
+    sorted.forEach((row, i) => { map[row.symbol] = { rank: i + 1, total: sorted.length }; });
+    return map;
+  }
+
+  // How far price can run from its own 20-day average before calling the
+  // move "already extended" rather than "just getting started" — a fixed,
+  // documented heuristic (not a fitted or scientifically-derived
+  // threshold, same "no model, a rule you can see" discipline as
+  // scorecard.py's own thresholds). Read the extended/not-extended note as
+  // a flag to look closer, never as a precise timing signal.
+  const OPP_EXTENDED_THRESHOLD_PCT = 5;
+
+  // Ranks every optionable instrument (iv_proxy_map) that currently has a
+  // real IV reading AND an active/fresh breadth signal on its category,
+  // combining three independent reads into one ordering: cheap IV first
+  // (the actual "better price" the user asked for), a fresh signal over a
+  // stale non-NEUTRAL call, and a trend that hasn't already run far from
+  // its own average. A symbol mapped to more than one category (QQQ:
+  // Stocks + Stock Indices) is deduped to whichever category gives it the
+  // strongest signal, so it never occupies two slots in its own ranking.
+  function computeOpportunities(scorecardRows, proxyMap, latestIVBySymbol, latestIVRankBySymbol, maBySymbol, instrumentBacktestBySymbol) {
+    const rankMap = ivCheapestRankMap(latestIVBySymbol);
+    const bySymbol = {};
+
+    for (const { category, symbol } of proxyMap) {
+      const scRow = latestScorecardForCategory(scorecardRows, category);
+      if (!scRow) continue;
+      const crossed = !!(scRow.prior_call && scRow.prior_call !== scRow.call);
+      const volFlag = !!scRow.volatility_flag;
+      const active = scRow.call !== "NEUTRAL";
+      if (!crossed && !volFlag && !active) continue; // nothing currently interesting about this category
+      const iv = latestIVBySymbol[symbol];
+      if (!iv) continue; // can't rank cheap/expensive without a real reading
+
+      const priority = (crossed ? 2 : 0) + (volFlag ? 2 : 0) + (active ? 1 : 0);
+      const existing = bySymbol[symbol];
+      if (existing && existing.priority >= priority) continue; // keep the stronger-signal category for this symbol
+      bySymbol[symbol] = { category, symbol, scRow, crossed, volFlag, active, iv, priority };
+    }
+
+    const candidates = Object.values(bySymbol).map((c) => {
+      const rank = rankMap[c.symbol];
+      const ivRank = latestIVRankBySymbol[c.symbol];
+      const skew = Number(c.iv.put_call_skew_5pct);
+      const cheaperSide = skew > 0 ? "calls" : skew < 0 ? "puts" : "flat";
+      const ma = maBySymbol[c.symbol] || null;
+      const distFromSma20 = ma && ma.sma_20 !== null && ma.sma_20 !== undefined
+        ? (Number(ma.close) / Number(ma.sma_20) - 1) * 100 : null;
+      const extended = distFromSma20 !== null && Math.abs(distFromSma20) > OPP_EXTENDED_THRESHOLD_PCT;
+      const backtest = (instrumentBacktestBySymbol[c.symbol] || []).find((b) => b.category === c.category && b.call === c.scRow.call) || null;
+      return { ...c, rank, ivRank, skew, cheaperSide, ma, distFromSma20, extended, backtest };
+    });
+
+    // Combined score, lower is better — NOT a lexicographic sort. Cheap-IV
+    // rank is already a dense 1..N ordering across everything tracked, so
+    // no two symbols can ever tie on it; a lexicographic "rank first, then
+    // freshness, then trend" sort would let rank decide every single
+    // comparison and make the other two criteria dead weight that never
+    // actually changes an outcome. Instead each criterion adds or removes
+    // whole rank-equivalent positions from a single score, so a merely
+    // slightly-pricier instrument with a fresh signal and room left to run
+    // CAN outrank a marginally cheaper one that's stale or already
+    // extended — which is the actual point of weighing three things
+    // together instead of picking by cheap IV alone. Fixed, documented
+    // weights (not fitted) — same "a rule you can see" discipline as
+    // scorecard.py's own weights.
+    const FRESH_PENALTY = 2;    // rank-equivalent positions lost for a stale (non-fresh) signal
+    const EXTENDED_PENALTY = 2; // rank-equivalent positions lost for an already-extended trend
+    function opportunityScore(c) {
+      const rankPart = c.rank ? c.rank.rank : 999;
+      const freshPart = (c.crossed || c.volFlag) ? 0 : FRESH_PENALTY;
+      const extendedPart = c.extended ? EXTENDED_PENALTY : 0;
+      return rankPart + freshPart + extendedPart;
+    }
+    candidates.forEach((c) => { c.opportunityScore = opportunityScore(c); });
+    candidates.sort((a, b) => a.opportunityScore - b.opportunityScore || a.symbol.localeCompare(b.symbol));
+
+    return candidates;
+  }
+
+  function renderOpportunities(scorecardRows, proxyMap, latestIVBySymbol, latestIVRankBySymbol, maBySymbol, instrumentBacktestBySymbol) {
+    const panel = $("opportunity-panel");
+    const candidates = computeOpportunities(scorecardRows, proxyMap, latestIVBySymbol, latestIVRankBySymbol, maBySymbol, instrumentBacktestBySymbol);
+
+    if (!candidates.length) {
+      panel.innerHTML = `<div class="empty-note">Nothing qualifies right now — either no category has an active/fresh breadth call, or none of those categories' instruments have an IV snapshot yet. Check Convexity Watch below for the raw category-level reads.</div>`;
+      return;
+    }
+
+    const cardHTML = (c, rankLabel) => {
+      const freshFlags = [
+        c.crossed ? `${escapeHTML(c.scRow.prior_call)} → ${escapeHTML(c.scRow.call)} this week` : "",
+        c.volFlag ? "panic-cycle volatility flag" : "",
+      ].filter(Boolean).join(" · ") || "active call, no change this week";
+
+      const cheapText = c.rank ? `cheapest ${c.rank.rank} of ${c.rank.total} tracked` : "not ranked";
+      const ivRankText = ivRankBadge(c.ivRank);
+
+      const skewClass = c.skew > 0 ? "skew-positive" : c.skew < 0 ? "skew-negative" : "";
+      const leanClass = c.cheaperSide === "calls" ? "opp-lean-calls" : c.cheaperSide === "puts" ? "opp-lean-puts" : "opp-lean-flat";
+      const leanText = c.cheaperSide === "flat" ? "calls and puts evenly priced" : `${c.cheaperSide} are the cheaper side today`;
+
+      const trendText = c.ma
+        ? (c.distFromSma20 === null
+            ? "not enough history for a 20d average yet"
+            : `${c.distFromSma20 >= 0 ? "+" : ""}${c.distFromSma20.toFixed(1)}% vs 20d SMA — ${c.extended
+                ? `<span class="opp-extended-note">already extended, may be running out of room</span>`
+                : `<span class="opp-not-extended-note">not yet extended</span>`}`)
+        : "no price history tracked yet";
+
+      const btText = c.backtest
+        ? (c.backtest.n < MIN_OBSERVATIONS_FOR_BACKTEST
+            ? `n=${c.backtest.n}, too early to trust`
+            : `${Number(c.backtest.avg_forward_return_pct) >= 0 ? "+" : ""}${Number(c.backtest.avg_forward_return_pct).toFixed(2)}% avg fwd 15d (n=${c.backtest.n})`)
+        : "no matched history yet";
+
+      const why = `${escapeHTML(c.symbol)} (${escapeHTML(c.category)}) made the list because its call is ${escapeHTML(c.scRow.call)}` +
+        `${c.crossed || c.volFlag ? " with a fresh signal this week" : ""}, and it's ${cheapText} on IV right now.` +
+        `${c.cheaperSide !== "flat" ? ` If you wanted convexity here, ${c.cheaperSide} are currently the less expensive side to buy it on (skew-based, not a directional call).` : ""}`;
+
+      return `<div class="opp-card ${rankLabel ? `opp-rank-${rankLabel}` : ""}">
+        ${rankLabel ? `<span class="opp-rank-badge">Opportunity #${rankLabel}</span>` : ""}
+        <div class="opp-symbol-row">
+          <span class="opp-symbol">${escapeHTML(c.symbol)}</span>
+          <span class="opp-category">${escapeHTML(c.category)} · <span class="call-badge ${c.scRow.call}">${escapeHTML(c.scRow.call)}</span></span>
+        </div>
+        <div class="opp-facts">
+          <div class="opp-fact-row"><span class="opp-fact-label">Signal</span> ${freshFlags}</div>
+          <div class="opp-fact-row"><span class="opp-fact-label">IV today</span> ${Number(c.iv.atm_iv_avg).toFixed(2)}% · ${cheapText} · ${ivRankText}</div>
+          <div class="opp-fact-row"><span class="opp-fact-label">Skew</span> <span class="${skewClass}">${c.skew >= 0 ? "+" : ""}${c.skew.toFixed(2)}</span> — <span class="opp-lean ${leanClass}">${leanText}</span></div>
+          <div class="opp-fact-row"><span class="opp-fact-label">Trend</span> ${trendText}</div>
+          <div class="opp-fact-row"><span class="opp-fact-label">Backtest</span> ${btText}</div>
+        </div>
+        <div class="opp-why">${why}</div>
+      </div>`;
+    };
+
+    const top2 = candidates.slice(0, 2);
+    const rest = candidates.slice(2);
+
+    let html = `<div class="opp-grid">${top2.map((c, i) => cardHTML(c, i + 1)).join("")}</div>`;
+
+    if (rest.length) {
+      html += `<div class="opp-rest-table">
+        <div class="decision-tile-label" style="margin-bottom:6px;">Rest of the ranked field</div>
+        ${rest.map((c) => `<div class="opp-rest-row">
+          <span class="opp-rest-symbol">${escapeHTML(c.symbol)}</span>
+          <span>${escapeHTML(c.category)}</span>
+          <span class="call-badge ${c.scRow.call}">${escapeHTML(c.scRow.call)}</span>
+          <span>${c.rank ? `cheapest ${c.rank.rank} of ${c.rank.total}` : "not ranked"}</span>
+          <span>${c.extended ? "extended" : "not extended"}</span>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    html += `<div class="decision-read" style="margin-top:14px;"><span class="decision-caveat" style="display:block;">Ranks candidates by cheap IV, fresh signal, and not-yet-extended trend — it narrows the field, it does not pick a trade. The 20d-SMA distance check is a simple heuristic, not a scientific exhaustion signal; the backtest average, even a well-populated one, describes what happened before, not what will happen next. Not financial advice.</span></div>`;
+
+    panel.innerHTML = html;
+  }
+
+  // Same threshold as scorecard.py's PANIC_FLAG_THRESHOLD / the schema's
+  // v_scorecard.volatility_flag (panic_cycle_pct > 20.0) — repeated here
+  // (not re-derived from volatility_flag) so this panel can show WHERE a
+  // category sits relative to the line, not just whether it crossed it.
+  const PANIC_FLAG_THRESHOLD_PCT = 20.0;
+
+  // Ranks every category by panic_cycle_pct this week — Socrates' own
+  // "Panic Cycle Signal Within 3 weeks" % per category (platform_breadth,
+  // section=timing_array), flowing through v_panic_cycle_exposure ->
+  // v_scorecard -> v_scorecard_wow. This field was already being fetched
+  // by every refresh() (it's part of v_scorecard_wow's select=*) and
+  // already feeds the scorecard formula and the volatility_flag boolean
+  // elsewhere on this page, but until now nothing showed the actual
+  // magnitude or let you see which categories are closest to a panic
+  // cycle window. That's the concrete lever this panel adds: not new
+  // data, a new lens on data already flowing through the pipeline.
+  //
+  // "2x" is read literally — the top 2 categories by panic_cycle_pct are
+  // highlighted, cross-referenced with whichever optionable instrument(s)
+  // map to that category so you can see, in the same glance, both WHICH
+  // category has the highest live panic-cycle reading and WHETHER its
+  // premium is currently cheap or rich. It does not assert a trade or a
+  // direction — same discipline as every other panel here — and it does
+  // not know about calendar "target weeks" (Execution Rule 2's high-
+  // density Aggregate/Panic Cycle windows) or per-instrument Monthly
+  // Pattern labels (Execution Rule 3) — platform_breadth.csv doesn't carry
+  // either yet, so those two rules aren't encoded here; ask if you can get
+  // a sample export of those report sections and they can be added.
+  function computePanicRadar(scorecardRows, categoryToIVSymbols, latestIVBySymbol, latestIVRankBySymbol) {
+    const rankMap = ivCheapestRankMap(latestIVBySymbol);
+    const out = [];
+    for (const category of CATEGORY_ORDER) {
+      const history = scorecardRows.filter((r) => r.category === category);
+      if (!history.length) continue;
+      const latest = history[history.length - 1];
+      if (latest.panic_cycle_pct === null || latest.panic_cycle_pct === undefined) continue;
+      const pct = Number(latest.panic_cycle_pct);
+      const prior = history.length > 1 ? Number(history[history.length - 2].panic_cycle_pct) : null;
+      const change = prior !== null && !Number.isNaN(prior) ? pct - prior : null;
+
+      const ivSymbols = categoryToIVSymbols[category] || [];
+      const instruments = ivSymbols.map((sym) => {
+        const iv = latestIVBySymbol[sym];
+        if (!iv) return { symbol: sym, iv: null };
+        const lean = skewLeanLabel(iv.put_call_skew_5pct);
+        const rank = rankMap[sym];
+        const ivRank = latestIVRankBySymbol[sym];
+        return { symbol: sym, iv, lean, rank, ivRank };
+      });
+
+      out.push({ category, call: latest.call, pct, change, flagged: pct > PANIC_FLAG_THRESHOLD_PCT, instruments });
+    }
+    out.sort((a, b) => b.pct - a.pct || a.category.localeCompare(b.category));
+    return out;
+  }
+
+  function renderPanicRadar(scorecardRows, categoryToIVSymbols, latestIVBySymbol, latestIVRankBySymbol) {
+    const panel = $("panic-radar-panel");
+    const ranked = computePanicRadar(scorecardRows, categoryToIVSymbols, latestIVBySymbol, latestIVRankBySymbol);
+
+    if (!ranked.length) {
+      panel.innerHTML = `<div class="empty-note">No Panic Cycle % data yet — this needs platform_breadth's timing_array section (metric "Panic Cycle Signal Within 3 weeks") pushed for at least one category.</div>`;
+      return;
+    }
+
+    const pctClass = (r) => r.flagged ? "panic-pct-flagged" : r.pct >= PANIC_FLAG_THRESHOLD_PCT / 2 ? "panic-pct-elevated" : "panic-pct-calm";
+    const changeText = (r) => r.change === null
+      ? ""
+      : ` <span class="${r.change >= 0 ? "panic-change-up" : "panic-change-down"}">(${r.change >= 0 ? "+" : ""}${r.change.toFixed(1)}pt vs last week)</span>`;
+
+    const instrumentLines = (r) => r.instruments.length
+      ? r.instruments.map((inst) => {
+          if (!inst.iv) return `<div class="panic-instrument-row"><b>${escapeHTML(inst.symbol)}</b> <span class="no-iv">no IV snapshot yet</span></div>`;
+          return `<div class="panic-instrument-row"><b>${escapeHTML(inst.symbol)}</b> ATM IV ${Number(inst.iv.atm_iv_avg).toFixed(2)}% · ` +
+                 `<span class="${inst.lean.cls}" title="raw skew ${inst.lean.numText}">${inst.lean.words}</span> · ${ivRankBadge(inst.ivRank)}</div>`;
+        }).join("")
+      : `<div class="panic-instrument-row"><span class="no-proxy-note">no IV proxy mapped</span></div>`;
+
+    const cardHTML = (r, rankLabel) => `<div class="panic-card ${rankLabel ? `panic-rank-${rankLabel}` : ""} ${r.flagged ? "panic-flagged" : ""}">
+        ${rankLabel ? `<span class="panic-rank-badge">Panic Radar #${rankLabel}</span>` : ""}
+        <div class="opp-symbol-row">
+          <span class="opp-symbol">${escapeHTML(r.category)}</span>
+          <span class="opp-category"><span class="call-badge ${r.call}">${escapeHTML(r.call)}</span></span>
+        </div>
+        <div class="panic-pct-row">
+          <span class="panic-pct-value ${pctClass(r)}">${r.pct.toFixed(1)}%</span>
+          <span class="panic-pct-label">panic cycle signal this week${changeText(r)}</span>
+        </div>
+        <div class="panic-threshold-note">${r.flagged
+          ? `above the ${PANIC_FLAG_THRESHOLD_PCT.toFixed(0)}% flag threshold — same trigger as the volatility flag elsewhere on this page`
+          : `${(PANIC_FLAG_THRESHOLD_PCT - r.pct).toFixed(1)}pt below the ${PANIC_FLAG_THRESHOLD_PCT.toFixed(0)}% flag threshold`}</div>
+        <div class="panic-instruments">${instrumentLines(r)}</div>
+      </div>`;
+
+    const top2 = ranked.slice(0, 2);
+    const rest = ranked.slice(2);
+
+    let html = `<div class="opp-grid">${top2.map((r, i) => cardHTML(r, i + 1)).join("")}</div>`;
+
+    if (rest.length) {
+      html += `<div class="opp-rest-table">
+        <div class="decision-tile-label" style="margin-bottom:6px;">Rest of the ranked field</div>
+        ${rest.map((r) => `<div class="opp-rest-row">
+          <span class="opp-rest-symbol">${escapeHTML(r.category)}</span>
+          <span class="call-badge ${r.call}">${escapeHTML(r.call)}</span>
+          <span class="${pctClass(r)}">${r.pct.toFixed(1)}% panic cycle</span>
+          <span>${r.flagged ? "flagged" : "below threshold"}</span>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    html += `<div class="decision-read" style="margin-top:14px;"><span class="decision-caveat" style="display:block;">Ranks categories by Socrates' own Panic Cycle % reading this week — higher means the category is reading closer to (or already inside) a panic-cycle volatility window, not that price will move any particular direction. Cross-referenced with whichever optionable instrument tracks that category so you can see if premium is currently cheap there too. Doesn't know about specific calendar target weeks or per-instrument Monthly Pattern labels — see the note in the section above. Not financial advice.</span></div>`;
+
+    panel.innerHTML = html;
+  }
+
+  function renderTriggers(scorecardRows, categoryToIVSymbols, latestIVBySymbol, maBySymbol) {
+    const panel = $("triggers-panel");
+    const weeks = Array.from(new Set(scorecardRows.map((r) => r.week_of))).sort();
+    const latestWeek = weeks[weeks.length - 1];
+    if (!latestWeek) {
+      panel.innerHTML = `<div class="empty-note">No scorecard data yet.</div>`;
+      return;
+    }
+    const latestByCategory = {};
+    for (const r of scorecardRows) {
+      if (r.week_of === latestWeek) latestByCategory[r.category] = r;
+    }
+    const rankMap = ivCheapestRankMap(latestIVBySymbol);
+    const CHEAP_HALF = (total) => Math.ceil(total / 2);
+
+    const entries = CATEGORY_ORDER.map((category) => {
+      const r = latestByCategory[category];
+      if (!r) return null;
+      const crossed = !!(r.prior_call && r.prior_call !== r.call);
+      const volFlag = !!r.volatility_flag;
+      const priceSymbols = CATEGORY_PROXIES[category] || [];
+      const ivSymbols = categoryToIVSymbols[category] || [];
+      const ivHasCheap = ivSymbols.some((sym) => {
+        const rank = rankMap[sym];
+        return rank && rank.rank <= CHEAP_HALF(rank.total);
+      });
+      const watch = (crossed || volFlag) && ivHasCheap;
+      return { category, r, crossed, volFlag, priceSymbols, ivSymbols, watch };
+    }).filter(Boolean);
+
+    // Watch-flagged categories float to the top (still in CATEGORY_ORDER
+    // among themselves); this is the one place on the page that reorders
+    // by "does this look interesting" rather than a fixed category order —
+    // deliberate, since finding the candidate IS this panel's job.
+    entries.sort((a, b) => (b.watch - a.watch));
+
+    if (!entries.length) {
+      panel.innerHTML = `<div class="empty-note">No scorecard data yet.</div>`;
+      return;
+    }
+
+    panel.innerHTML = entries.map(({ category, r, crossed, volFlag, priceSymbols, ivSymbols, watch }) => {
+      const flags = [
+        crossed ? `<span class="trigger-flag-crossed">${escapeHTML(r.prior_call)} → ${escapeHTML(r.call)} this week</span>` : "",
+        volFlag ? `<span class="trigger-flag-volatility">panic-cycle volatility flag</span>` : "",
+        watch ? `<span class="trigger-flag-watch">watch — fresh signal + cheap IV</span>` : "",
+      ].filter(Boolean).join("");
+
+      const priceBlock = priceSymbols.length
+        ? priceSymbols.map((sym) => {
+            const m = maBySymbol[sym];
+            if (!m) return `<div class="trigger-proxy-row"><b>${escapeHTML(sym)}</b> <span class="no-proxy-note">no price history yet</span></div>`;
+            const wk = m.pct_change_1wk === null || m.pct_change_1wk === undefined
+              ? `<span class="thin">—</span>`
+              : `<span class="${Number(m.pct_change_1wk) >= 0 ? "up" : "down"}">${Number(m.pct_change_1wk) >= 0 ? "+" : ""}${Number(m.pct_change_1wk).toFixed(2)}% 1wk</span>`;
+            return `<div class="trigger-proxy-row"><b>${escapeHTML(sym)}</b> ${Number(m.close).toFixed(2)} ${wk} ${maBadge(m.close, m.sma_10, m.observations_10, 10, "10d")}</div>`;
+          }).join("")
+        : `<div class="no-proxy-note">no proxy (overlaps other categories)</div>`;
+
+      const ivBlock = ivSymbols.length
+        ? ivSymbols.map((sym) => {
+            const iv = latestIVBySymbol[sym];
+            if (!iv) return `<div class="trigger-proxy-row"><b>${escapeHTML(sym)}</b> <span class="no-proxy-note">no IV snapshot yet</span></div>`;
+            const rank = rankMap[sym];
+            const rankText = rank ? `cheapest ${rank.rank} of ${rank.total} tracked` : "";
+            return `<div class="trigger-proxy-row"><b>${escapeHTML(sym)}</b> ATM IV ${Number(iv.atm_iv_avg).toFixed(2)}% <span style="color:var(--text-dim)">${rankText}</span></div>`;
+          }).join("")
+        : `<div class="no-proxy-note">no IV proxy mapped</div>`;
+
+      return `<div class="trigger-row ${watch ? "watch" : ""}">
+        <div class="trigger-top">
+          <span class="trigger-cat">${escapeHTML(category)}</span>
+          <div class="trigger-flags">
+            <span class="call-badge ${r.call}">${escapeHTML(r.call)}</span>
+            ${flags}
+          </div>
+        </div>
+        <div class="trigger-body">
+          <div class="trigger-block"><div class="trigger-block-title">Price proxy</div>${priceBlock}</div>
+          <div class="trigger-block"><div class="trigger-block-title">IV proxy</div>${ivBlock}</div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderCategories(scorecardRows, latestCloseBySymbol, latestIVBySymbol, latestIVRankBySymbol) {
+    // Group by category, sorted by week_of, to build per-category history for sparklines.
+    const byCategory = {};
+    for (const r of scorecardRows) {
+      (byCategory[r.category] = byCategory[r.category] || []).push(r);
+    }
+    for (const cat in byCategory) byCategory[cat].sort((a, b) => a.week_of.localeCompare(b.week_of));
+
+    const grid = $("category-grid");
+    grid.innerHTML = "";
+
+    for (const category of CATEGORY_ORDER) {
+      const history = byCategory[category] || [];
+      const latest = history[history.length - 1];
+      const card = document.createElement("div");
+
+      if (!latest) {
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-top">
+            <div><div class="cat-name">${escapeHTML(category)}</div><div class="proxy">no scorecard data yet</div></div>
+          </div>`;
+        grid.appendChild(card);
+        continue;
+      }
+
+      card.className = `card ${latest.call}`;
+      const proxies = CATEGORY_PROXIES[category] || [];
+      const proxyLabel = proxies.length ? proxies.join(" / ") : "no proxy (overlaps other categories)";
+      const scores = history.map((r) => r.score);
+      const volFlagHTML = latest.volatility_flag
+        ? `<div class="vol-flag"><span class="dot"></span> panic-cycle volatility flag</div>`
+        : "";
+      const priceLines = proxies.map((sym) => {
+        const p = latestCloseBySymbol[sym];
+        return p ? `<div><b>${escapeHTML(sym)}</b> ${p.close} <span style="opacity:0.6">(${p.date})</span></div>` : "";
+      }).filter(Boolean).join("");
+
+      const ivProxies = IV_PROXIES[category] || [];
+      const ivRows = ivProxies.map((sym) => {
+        const iv = latestIVBySymbol[sym];
+        if (!iv) return `<div class="iv-row"><span>${escapeHTML(sym)}</span><span class="no-iv">no IV snapshot yet</span></div>`;
+        const lean = skewLeanLabel(iv.put_call_skew_5pct);
+        const rank = latestIVRankBySymbol[sym];
+        return `<div class="iv-row"><span><b>${escapeHTML(sym)}</b> ATM IV ${Number(iv.atm_iv_avg).toFixed(2)}%</span>` +
+               `<span class="${lean.cls}" title="raw skew ${lean.numText}">${lean.words}</span></div>` +
+               `<div class="iv-row"><span>IV rank</span><span>${ivRankBadge(rank)}</span></div>`;
+      }).join("");
+      const ivBlock = ivProxies.length
+        ? `<div class="iv-block">${ivRows}</div>`
+        : "";
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div>
+            <div class="cat-name">${escapeHTML(category)}</div>
+            <div class="proxy">${escapeHTML(proxyLabel)}</div>
+          </div>
+          <span class="call-badge ${latest.call}">${escapeHTML(latest.call)}</span>
+        </div>
+        <div class="score-row">
+          <span class="score">${latest.score}</span>
+          <span class="score-label">score</span>
+        </div>
+        ${volFlagHTML}
+        <div class="spark">${sparklineSVG(scores, 220, 36)}</div>
+        ${priceLines ? `<div class="prices">${priceLines}</div>` : ""}
+        ${ivBlock}
+        <div class="week-of">week of ${escapeHTML(latest.week_of)}</div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+
+  function renderAlerts(alerts) {
+    const panel = $("alerts-panel");
+    if (!alerts.length) {
+      panel.innerHTML = `<div class="empty-note">No alerts sent yet.</div>`;
+      return;
+    }
+    panel.innerHTML = alerts.map((a) => {
+      const flag = a.volatility_flag ? " · volatility flag" : "";
+      return `<div class="alert-row">
+        <span><b>${escapeHTML(a.category)}</b> — ${escapeHTML(a.call)}${flag} (week of ${escapeHTML(a.week_of)})</span>
+        <span class="meta">${escapeHTML(new Date(a.sent_at).toLocaleString())}</span>
+      </div>`;
+    }).join("");
+  }
+
+  // vs-moving-average badge for one window (10d or 20d). "thin" when fewer
+  // sessions of real history exist than the window needs — observations_N
+  // is the view's own honest count (v_price_moving_averages never pads a
+  // partial window out to look like a full one), so a freshly-added
+  // instrument reads as "thin (n=3/10)" rather than a misleadingly
+  // confident average.
+  function maBadge(close, sma, observations, windowSize, label) {
+    if (sma === null || sma === undefined) {
+      return `<span class="thin">no ${label} yet</span>`;
+    }
+    const pct = ((Number(close) / Number(sma)) - 1) * 100;
+    const cls = pct >= 0 ? "above" : "below";
+    const arrow = pct >= 0 ? "▲" : "▼";
+    const thinNote = observations < windowSize ? ` <span class="thin">(n=${observations}/${windowSize})</span>` : "";
+    return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}% vs ${label}</span>${thinNote}`;
+  }
+
+  // Minimum real sessions behind the 50-day SMA before calling it an actual
+  // "uptrend"/"downtrend" read for the Breadth Call vs. Trend panel — below
+  // this, a "trend" would just be reading noise from too few points. Set
+  // deliberately lower than the 50-session window itself (an instrument
+  // doesn't need a FULL 50 days before its trend read means anything, same
+  // spirit as MIN_OBSERVATIONS_FOR_RANK for IV rank), but still enough to
+  // not call a 2-session blip a trend.
+  const MIN_OBSERVATIONS_FOR_TREND = 5;
+
+  // Turns one v_price_moving_averages_latest row into an explicit
+  // UP/DOWN(TREND) read: price vs its own 50-day SMA (the "Price vs 50-day
+  // SMA" rule picked for this dashboard — simple and matches what most
+  // swing traders mean by "the trend"). Deliberately returns a null `dir`
+  // (not a guessed one) below MIN_OBSERVATIONS_FOR_TREND or when there's no
+  // price history at all — same no-fabrication discipline as IV rank/VIX
+  // rank showing "building history" instead of a percentile too early.
+  function trendDirection(row) {
+    if (!row || row.sma_50 === null || row.sma_50 === undefined) {
+      return { dir: null, html: `<span class="thin">no price history tracked yet</span>` };
+    }
+    const obs = Number(row.observations_50) || 0;
+    if (obs < MIN_OBSERVATIONS_FOR_TREND) {
+      return { dir: null, html: `<span class="thin">not enough price history yet for a 50d trend read (n=${obs})</span>` };
+    }
+    const pct = ((Number(row.close) / Number(row.sma_50)) - 1) * 100;
+    const dir = pct >= 0 ? "up" : "down";
+    const label = pct >= 0 ? "UPTREND" : "DOWNTREND";
+    const thinNote = obs < 50 ? ` <span class="thin">(n=${obs}/50)</span>` : "";
+    return { dir, pct, html: `<span class="${dir}">${label}</span> <span class="${dir}">${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% vs 50d SMA</span>${thinNote}` };
+  }
+
+  // "Breadth call vs. actual price trend" panel — built directly off the
+  // question "the dashboard's breadth call implies a direction to me, is
+  // that actually confirmed by real price action." Deliberately factual
+  // only: shows the category's current call next to its canonical price
+  // proxy's measured trend (via trendDirection above), and never states
+  // whether the two agree — see the panel's own <div class="sub"> for why
+  // (the breadth score is a composite, not a directional forecast, same
+  // discipline as Convexity Watch and every other panel on this page).
+  function renderDirectionCheck(scorecardRows, maBySymbol) {
+    const panel = $("dircheck-panel");
+    const weeks = Array.from(new Set(scorecardRows.map((r) => r.week_of))).sort();
+    const latestWeek = weeks[weeks.length - 1];
+    if (!latestWeek) {
+      panel.innerHTML = `<div class="empty-note">No scorecard data yet.</div>`;
+      return;
+    }
+    const latestByCategory = {};
+    for (const r of scorecardRows) {
+      if (r.week_of === latestWeek) latestByCategory[r.category] = r;
+    }
+
+    const entries = CATEGORY_ORDER.map((category) => {
+      const r = latestByCategory[category];
+      if (!r) return null;
+      const proxies = CATEGORY_PROXIES[category] || [];
+      return { category, r, proxies };
+    }).filter(Boolean);
+
+    if (!entries.length) {
+      panel.innerHTML = `<div class="empty-note">No scorecard data yet.</div>`;
+      return;
+    }
+
+    // Active calls (CAUTION/CONSTRUCTIVE) first — those are the calls
+    // actually worth checking against real price action; NEUTRAL rows
+    // sort after, same priority convention as Convexity Watch.
+    entries.sort((a, b) => {
+      const aActive = a.r.call !== "NEUTRAL" ? 0 : 1;
+      const bActive = b.r.call !== "NEUTRAL" ? 0 : 1;
+      return aActive - bActive || a.category.localeCompare(b.category);
+    });
+
+    panel.innerHTML = entries.map(({ category, r, proxies }) => {
+      const proxyReads = proxies.length
+        ? `<div class="dircheck-trend-col">${proxies.map((sym) => {
+            const row = maBySymbol[sym];
+            const trend = trendDirection(row);
+            const closeText = row ? `${Number(row.close).toFixed(2)} <span style="opacity:0.6">(${escapeHTML(row.date)})</span>` : "";
+            return `<div class="dircheck-trend"><b>${escapeHTML(sym)}</b> ${closeText} — ${trend.html}</div>`;
+          }).join("")}</div>`
+        : `<div class="dircheck-trend-col"><div class="no-proxy-note">no price proxy mapped for this category</div></div>`;
+      return `<div class="dircheck-row">
+        <span class="dircheck-category">${escapeHTML(category)}</span>
+        <span class="dircheck-proxy"><span class="call-badge ${r.call}">${escapeHTML(r.call)}</span></span>
+        ${proxyReads}
+      </div>`;
+    }).join("");
+  }
+
+  // Grouped instrument watchlist — the ~40-symbol macro universe from
+  // v_price_moving_averages_latest, one row per symbol, grouped by
+  // group_label (Tech/Momentum, Global Indices, Commodities, Rates,
+  // Volatility, FX, Crypto) and sorted within each group by |1-week %
+  // change| descending, so the biggest mover in each group surfaces first.
+  // A "medium"/"low" confidence symbol (see market_data.py's docstring —
+  // its ticker mapping wasn't verified against live Yahoo data from this
+  // sandbox) shows an inline note rather than being hidden or silently
+  // trusted the same as a "high" confidence one.
+  function renderWatchlist(maRows) {
+    const panel = $("watchlist-panel");
+    if (!maRows.length) {
+      panel.innerHTML = `<div class="empty-note">No instrument price history yet — run market_data.py, then push_to_supabase.py, to populate this.</div>`;
+      return;
+    }
+
+    const byGroup = {};
+    for (const r of maRows) {
+      const g = r.group_label || "Ungrouped";
+      (byGroup[g] = byGroup[g] || []).push(r);
+    }
+
+    const groups = GROUP_ORDER.filter((g) => byGroup[g] && byGroup[g].length)
+      .concat(Object.keys(byGroup).filter((g) => !GROUP_ORDER.includes(g)));
+
+    panel.innerHTML = groups.map((group) => {
+      const rows = [...byGroup[group]].sort((a, b) =>
+        Math.abs(Number(b.pct_change_1wk) || 0) - Math.abs(Number(a.pct_change_1wk) || 0)
+      );
+      const color = GROUP_COLORS[group] || "#8791a8";
+
+      const header = `<div class="watchlist-group-header"><span class="swatch" style="background:${color}"></span>${escapeHTML(group)}</div>`;
+
+      const headerRow = `<div class="wl-row wl-header">
+        <span class="wl-name">Instrument</span>
+        <span class="wl-close">Close</span>
+        <span class="wl-change">1wk</span>
+        <span class="wl-change">1mo</span>
+        <span class="wl-ma">vs 10d</span>
+        <span class="wl-ma">vs 20d</span>
+        <span class="wl-ma">vs 50d</span>
+        <span class="wl-volume">Volume</span>
+      </div>`;
+
+      const dataRows = rows.map((r) => {
+        const name = r.display_name || r.symbol;
+        const confNote = r.confidence && r.confidence !== "high"
+          ? `<span class="conf-note">(${escapeHTML(r.confidence)}-confidence ticker mapping)</span>`
+          : "";
+        const wk = r.pct_change_1wk === null || r.pct_change_1wk === undefined
+          ? `<span class="thin">—</span>`
+          : `<span class="${Number(r.pct_change_1wk) >= 0 ? "up" : "down"}">${Number(r.pct_change_1wk) >= 0 ? "+" : ""}${Number(r.pct_change_1wk).toFixed(2)}%</span>`;
+        const mo = r.pct_change_1mo === null || r.pct_change_1mo === undefined
+          ? `<span class="thin">—</span>`
+          : `<span class="${Number(r.pct_change_1mo) >= 0 ? "up" : "down"}">${Number(r.pct_change_1mo) >= 0 ? "+" : ""}${Number(r.pct_change_1mo).toFixed(2)}%</span>`;
+        const vol = r.volume === null || r.volume === undefined ? "—" : Number(r.volume).toLocaleString();
+        const sid = symbolId(r.symbol);
+
+        return `<div class="wl-row clickable-row" data-symbol="${escapeHTML(r.symbol)}" id="row-watchlist-panel-${sid}">
+          <span class="wl-name"><b>${escapeHTML(r.symbol)}</b> ${escapeHTML(name)} ${confNote}</span>
+          <span class="wl-close">${r.close === null || r.close === undefined ? "—" : Number(r.close).toFixed(2)}</span>
+          <span class="wl-change">${wk}</span>
+          <span class="wl-change">${mo}</span>
+          <span class="wl-ma">${maBadge(r.close, r.sma_10, r.observations_10, 10, "10d")}</span>
+          <span class="wl-ma">${maBadge(r.close, r.sma_20, r.observations_20, 20, "20d")}</span>
+          <span class="wl-ma">${maBadge(r.close, r.sma_50, r.observations_50, 50, "50d")}</span>
+          <span class="wl-volume">${vol}</span>
+          <span class="expand-hint">▸</span>
+        </div>
+        <div class="detail-panel" id="detail-watchlist-panel-${sid}" style="display:none"></div>`;
+      }).join("");
+
+      return `<div class="watchlist-group">${header}<div class="watchlist-table">${headerRow}${dataRows}</div></div>`;
+    }).join("");
+    reopenExpanded("watchlist-panel", loadWatchlistDetail);
+  }
+
+  // FRED macro panel — latest reading + change per series from
+  // v_fred_latest. A "medium" confidence series (the two OECD-sourced
+  // yield IDs — see fred_data.py's docstring) shows its note inline,
+  // same pattern as the instrument watchlist's confidence notes. No
+  // up/down color judgment on the change value — a rate or yield rising
+  // isn't inherently "good" or "bad" the way a price gain is, so this
+  // stays neutral (text-dim), unlike price changes elsewhere on the page.
+  // The "insights" layer on top of raw FRED levels — plain subtractions
+  // computed in v_fred_spreads/v_fred_spreads_latest (see supabase_
+  // schema.sql's comment there for the exact formula), not recomputed
+  // here. Each tile is independent since the underlying legs update at
+  // different frequencies (US 2s10s daily, the two European spreads
+  // monthly) — a tile with no real value for either leg yet is simply
+  // omitted, never shown as a fabricated 0 or blank card. States what
+  // the number is (curve shape / sovereign risk premium vs Germany),
+  // never a trade call — same discipline as every other panel here.
+  function renderFredSpreads(row) {
+    const panel = $("fred-spreads-panel");
+    if (!row) { panel.innerHTML = ""; return; }
+
+    const tiles = [
+      {
+        key: "us_2s10s", label: "US 2s10s (10Y − 2Y)", value: row.us_2s10s_bps, date: row.us_2s10s_date,
+        note: row.us_2s10s_bps === null ? "" : (Number(row.us_2s10s_bps) >= 0
+          ? "positive — normal, upward-sloping curve" : "negative — inverted curve"),
+      },
+      {
+        key: "fr_de", label: "France − Germany 10Y", value: row.fr_de_10y_bps, date: row.fr_de_10y_date,
+        note: "France's sovereign risk premium over Germany (the euro area's benchmark safe yield)",
+      },
+      {
+        key: "it_de", label: "Italy − Germany 10Y", value: row.it_de_10y_bps, date: row.it_de_10y_date,
+        note: "Italy's sovereign risk premium over Germany — same benchmark, wider spread is the more-watched of the two",
+      },
+    ].filter((t) => t.value !== null && t.value !== undefined);
+
+    if (!tiles.length) {
+      panel.innerHTML = "";
+      return;
+    }
+
+    panel.innerHTML = tiles.map((t) => `<div class="spread-tile">
+        <div class="spread-label">${escapeHTML(t.label)}</div>
+        <div class="spread-value">${Number(t.value) >= 0 ? "+" : ""}${Number(t.value).toFixed(1)} bps</div>
+        <div class="spread-date">as of ${escapeHTML(t.date)}</div>
+        <div class="spread-note">${escapeHTML(t.note)}</div>
+      </div>`).join("");
+  }
+
+  function renderFred(fredRows) {
+    const panel = $("fred-panel");
+    if (!fredRows.length) {
+      panel.innerHTML = `<div class="empty-note">No FRED data yet — run fred_data.py, then push_to_supabase.py, to populate this.</div>`;
+      return;
+    }
+    const sorted = [...fredRows].sort((a, b) => a.series_id.localeCompare(b.series_id));
+    panel.innerHTML = sorted.map((r) => {
+      const confNote = r.confidence && r.confidence !== "high"
+        ? `<div class="fred-confidence-note">${escapeHTML(r.confidence)}-confidence series ID — see fred_data.py</div>`
+        : "";
+      const change = r.change_from_prior_reading === null || r.change_from_prior_reading === undefined
+        ? ""
+        : `<span class="fred-change">${Number(r.change_from_prior_reading) >= 0 ? "+" : ""}${Number(r.change_from_prior_reading).toFixed(2)} vs prior reading</span>`;
+      const sid = symbolId(r.series_id);
+      return `<div class="fred-card clickable-row" data-symbol="${escapeHTML(r.series_id)}" id="row-fred-panel-${sid}">
+        <div class="fred-card-top">
+          <div>
+            <div class="fred-desc">${escapeHTML(r.description)}</div>
+            <div class="fred-id">${escapeHTML(r.series_id)} · ${escapeHTML(r.frequency)}</div>
+          </div>
+          <span class="expand-hint">▸</span>
+        </div>
+        ${confNote}
+        <div class="fred-value-row">
+          <span class="fred-value">${Number(r.value).toFixed(2)}</span>
+          ${change}
+        </div>
+        <div class="fred-date">as of ${escapeHTML(r.date)}</div>
+        <div class="detail-panel" id="detail-fred-panel-${sid}" style="display:none"></div>
+      </div>`;
+    }).join("");
+    reopenExpanded("fred-panel", loadFredDetail);
+  }
+
+  // Signal backtest summary — see supabase_schema.sql's comment on
+  // v_signal_backtest_summary for the full reasoning. n is the whole
+  // point: below MIN_OBSERVATIONS_FOR_BACKTEST, a row is dimmed and
+  // pushed to the bottom rather than sorted as if its average return were
+  // trustworthy. This threshold is deliberately higher than IV rank's (4)
+  // — a single forward-return outlier swings an average much harder than
+  // it swings a percentile rank.
+  const MIN_OBSERVATIONS_FOR_BACKTEST = 8;
+
+  function renderBacktest(summaryRows) {
+    const panel = $("backtest-panel");
+    if (!summaryRows.length) {
+      panel.innerHTML = `<div class="empty-note">No backtest data yet — needs both platform_breadth.csv and market_prices.csv history pushed to Supabase.</div>`;
+      return;
+    }
+    const header = `<div class="bt-row bt-header">
+      <span class="bt-cat">Category</span>
+      <span class="bt-call">Call</span>
+      <span class="bt-n">n</span>
+      <span class="bt-avg">avg fwd 15d</span>
+      <span class="bt-range">range</span>
+    </div>`;
+    const sorted = [...summaryRows].sort((a, b) => {
+      const aThin = a.n < MIN_OBSERVATIONS_FOR_BACKTEST, bThin = b.n < MIN_OBSERVATIONS_FOR_BACKTEST;
+      if (aThin !== bThin) return aThin ? 1 : -1; // thin rows sink to the bottom
+      return b.n - a.n;
+    });
+    const rows = sorted.map((r) => {
+      const thin = r.n < MIN_OBSERVATIONS_FOR_BACKTEST;
+      const avgText = thin
+        ? `<span class="bt-thin-note">n=${r.n}, building</span>`
+        : `${Number(r.avg_forward_return_pct) >= 0 ? "+" : ""}${Number(r.avg_forward_return_pct).toFixed(2)}%`;
+      const rangeText = (r.min_forward_return_pct === null || r.max_forward_return_pct === null)
+        ? ""
+        : `${Number(r.min_forward_return_pct).toFixed(1)}% to ${Number(r.max_forward_return_pct).toFixed(1)}%`;
+      return `<div class="bt-row ${thin ? "bt-thin" : ""}">
+        <span class="bt-cat">${escapeHTML(r.category)}</span>
+        <span class="bt-call"><span class="call-badge ${r.call}">${escapeHTML(r.call)}</span></span>
+        <span class="bt-n">${r.n}</span>
+        <span class="bt-avg">${avgText}</span>
+        <span class="bt-range">${rangeText}</span>
+      </div>`;
+    }).join("");
+    panel.innerHTML = header + rows;
+  }
+
+  // Latest (highest week_of) v_scorecard_wow row for one category, or null
+  // if that category has no breadth history yet. scorecardRows is already
+  // sorted week_of ascending (see the fetch in refresh()), so the last
+  // match is the latest.
+  function latestScorecardForCategory(scorecardRows, category) {
+    const rows = scorecardRows.filter((r) => r.category === category);
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  // The "is this specific instrument worth a look" panel — pulls together
+  // the same four reads that were previously scattered across separate
+  // panels (category breadth call, today's IV/skew/rank, this symbol's own
+  // price trend, and this symbol's own backtest history) for ONE symbol at
+  // a time. Deliberately descriptive, not a recommendation: it states what
+  // each number is, not what to do about it — same discipline as the
+  // Convexity Watch panel's own comment above. A symbol can legitimately
+  // map to more than one category (QQQ covers both Stocks and Stock
+  // Indices) — every category it maps to gets its own line rather than
+  // picking one arbitrarily.
+  function renderDecisionPanel() {
+    const select = $("decision-symbol-select");
+    const nameEl = $("decision-symbol-name");
+    const grid = $("decision-grid");
+    const readEl = $("decision-read");
+    const snap = lastSnapshot;
+
+    if (!snap || !snap.symbols.length) {
+      select.innerHTML = "";
+      nameEl.textContent = "";
+      grid.innerHTML = `<div class="empty-note">No optionable instruments mapped yet — iv_proxy_map is empty.</div>`;
+      readEl.innerHTML = "";
+      return;
+    }
+
+    // Rebuild options only when the symbol list actually changed, so the
+    // dropdown doesn't lose scroll position/focus on every 60s refresh for
+    // no reason — same idea as reopenExpanded avoiding needless DOM churn.
+    const optionsHTML = snap.symbols.map((s) => {
+      const cats = (snap.symbolToCategories[s] || []).join("/");
+      return `<option value="${escapeHTML(s)}">${escapeHTML(s)}${cats ? ` — ${escapeHTML(cats)}` : ""}</option>`;
+    }).join("");
+    if (select.innerHTML !== optionsHTML) select.innerHTML = optionsHTML;
+
+    const prevValue = select.value;
+    const symbol = (prevValue && snap.symbols.includes(prevValue))
+      ? prevValue
+      : (snap.symbols.includes("FXE") ? "FXE" : snap.symbols[0]);
+    select.value = symbol;
+
+    const display = snap.instrumentDisplayBySymbol[symbol];
+    nameEl.textContent = display ? display.display_name : "no price data tracked for this symbol yet";
+
+    const categories = snap.symbolToCategories[symbol] || [];
+    const categoryReads = categories.map((cat) => ({ category: cat, row: latestScorecardForCategory(snap.scorecardRows, cat) }));
+
+    // --- Tile 1: category breadth call(s) ---
+    const categoryTileBody = categoryReads.length
+      ? categoryReads.map(({ category, row }) => row
+          ? `<div>${escapeHTML(category)}: <span class="call-badge ${row.call}">${escapeHTML(row.call)}</span> <span class="decision-tile-sub" style="display:inline">(score ${Number(row.score).toFixed(1)}, week of ${escapeHTML(row.week_of)})</span></div>`
+          : `<div>${escapeHTML(category)}: <span class="decision-tile-sub" style="display:inline">no breadth history yet</span></div>`
+        ).join("")
+      : `<span class="decision-tile-sub">not mapped to a breadth category</span>`;
+    const categoryTile = `<div class="decision-tile ${categoryReads.some((c) => c.row) ? "" : "decision-missing"}">
+      <div class="decision-tile-label">Category breadth</div>
+      <div class="decision-tile-value" style="font-size:14px;">${categoryTileBody}</div>
+    </div>`;
+
+    // --- Tile 2: today's IV + skew + rank ---
+    const iv = snap.latestIVBySymbol[symbol];
+    const rank = snap.latestIVRankBySymbol[symbol];
+    const ivTile = iv
+      ? (() => {
+          const lean = skewLeanLabel(iv.put_call_skew_5pct);
+          return `<div class="decision-tile">
+            <div class="decision-tile-label">ATM IV &amp; skew</div>
+            <div class="decision-tile-value">${Number(iv.atm_iv_avg).toFixed(2)}%</div>
+            <div class="decision-tile-sub"><span class="${lean.cls}" title="raw skew ${lean.numText}">${lean.words}</span> · ${ivRankBadge(rank)}</div>
+            <div class="decision-tile-sub">as of ${escapeHTML(iv.date)}</div>
+          </div>`;
+        })()
+      : `<div class="decision-tile decision-missing">
+          <div class="decision-tile-label">ATM IV &amp; skew</div>
+          <div class="decision-tile-value">no IV snapshot yet</div>
+          <div class="decision-tile-sub">run iv_snapshot.py (or update_iv.sh) with ${escapeHTML(symbol)} in OPTIONABLE_PROXIES</div>
+        </div>`;
+
+    // --- Tile 3: this symbol's own price trend ---
+    const ma = snap.maBySymbol[symbol];
+    const priceTile = ma
+      ? (() => {
+          const wk = ma.pct_change_1wk === null ? null : Number(ma.pct_change_1wk);
+          const mo = ma.pct_change_1mo === null ? null : Number(ma.pct_change_1mo);
+          const vsSma10 = ma.sma_10 === null ? "" : (Number(ma.close) >= Number(ma.sma_10) ? "above 10d SMA" : "below 10d SMA");
+          const vsSma20 = ma.sma_20 === null ? "" : (Number(ma.close) >= Number(ma.sma_20) ? "above 20d SMA" : "below 20d SMA");
+          return `<div class="decision-tile">
+            <div class="decision-tile-label">Price trend</div>
+            <div class="decision-tile-value">${Number(ma.close).toFixed(2)}</div>
+            <div class="decision-tile-sub">${wk === null ? "n/a" : `${wk >= 0 ? "+" : ""}${wk.toFixed(1)}% 1wk`} · ${mo === null ? "n/a" : `${mo >= 0 ? "+" : ""}${mo.toFixed(1)}% 1mo`}</div>
+            <div class="decision-tile-sub">${[vsSma10, vsSma20].filter(Boolean).join(", ") || "not enough history for a moving average yet"}</div>
+          </div>`;
+        })()
+      : `<div class="decision-tile decision-missing">
+          <div class="decision-tile-label">Price trend</div>
+          <div class="decision-tile-value">no price history tracked</div>
+          <div class="decision-tile-sub">add ${escapeHTML(symbol)} to market_data.py's INSTRUMENT_UNIVERSE and run it</div>
+        </div>`;
+
+    // --- Tile 4: this symbol's own backtest history, matched to its
+    // category's CURRENT call (not every call ever seen — the relevant
+    // question is "what happened before, under the call in force today") ---
+    const btRows = snap.instrumentBacktestBySymbol[symbol] || [];
+    const btMatches = categoryReads
+      .filter(({ row }) => row)
+      .map(({ category, row }) => ({ category, call: row.call, match: btRows.find((b) => b.category === category && b.call === row.call) }));
+    const backtestTileBody = btMatches.length
+      ? btMatches.map(({ category, call, match }) => {
+          if (!match) return `<div>${escapeHTML(category)} (${escapeHTML(call)}): <span class="decision-tile-sub" style="display:inline">no overlapping price+breadth history yet</span></div>`;
+          const thin = match.n < MIN_OBSERVATIONS_FOR_BACKTEST;
+          const avgText = thin
+            ? `n=${match.n}, too early to trust`
+            : `${Number(match.avg_forward_return_pct) >= 0 ? "+" : ""}${Number(match.avg_forward_return_pct).toFixed(2)}% avg fwd 15d (n=${match.n})`;
+          return `<div>${escapeHTML(category)} (${escapeHTML(call)}): <span class="decision-tile-sub" style="display:inline">${avgText}</span></div>`;
+        }).join("")
+      : `<span class="decision-tile-sub">no category call to match against yet</span>`;
+    const backtestTile = `<div class="decision-tile ${btMatches.some((m) => m.match && m.match.n >= MIN_OBSERVATIONS_FOR_BACKTEST) ? "" : "decision-missing"}">
+      <div class="decision-tile-label">Backtest (this call, this symbol)</div>
+      <div class="decision-tile-value" style="font-size:14px;">${backtestTileBody}</div>
+    </div>`;
+
+    grid.innerHTML = categoryTile + ivTile + priceTile + backtestTile;
+
+    // --- Synthesized read: states what's tracked, asserts no direction ---
+    const parts = [];
+    parts.push(`<strong>${escapeHTML(symbol)}</strong>${categories.length ? ` (${escapeHTML(categories.join("/"))})` : ""}:`);
+    if (categoryReads.length && categoryReads.some((c) => c.row)) {
+      parts.push(categoryReads.filter((c) => c.row).map((c) => `${escapeHTML(c.category)} is ${escapeHTML(c.row.call)}`).join(", ") + ".");
+    } else {
+      parts.push("no breadth call tracked for its category yet.");
+    }
+    if (iv) {
+      const skew = Number(iv.put_call_skew_5pct);
+      parts.push(`Today's ATM IV is ${Number(iv.atm_iv_avg).toFixed(2)}%, skew ${skew >= 0 ? "+" : ""}${skew.toFixed(2)} (${skew > 0 ? "puts priced richer than calls" : skew < 0 ? "calls priced richer than puts" : "calls and puts evenly priced"}).`);
+    } else {
+      parts.push("No IV snapshot on file for it yet.");
+    }
+    if (ma) {
+      const wk = ma.pct_change_1wk === null ? null : Number(ma.pct_change_1wk);
+      parts.push(wk === null ? "Price history exists but not enough for a weekly change yet." : `Price is ${wk >= 0 ? "up" : "down"} ${Math.abs(wk).toFixed(1)}% over the past week.`);
+    } else {
+      parts.push("No price history tracked for it yet.");
+    }
+    const anyTrustedBacktest = btMatches.some((m) => m.match && m.match.n >= MIN_OBSERVATIONS_FOR_BACKTEST);
+    parts.push(anyTrustedBacktest
+      ? "The backtest tile above has enough observations to be worth reading."
+      : "Backtest evidence for this exact call+symbol is still too thin to draw a conclusion from.");
+    readEl.innerHTML = parts.join(" ") +
+      `<span class="decision-caveat">Factual summary only, not a recommendation. The breadth score is a composite of reversal bias, aggregate high/low, and panic-cycle exposure — not a price forecast — and a backtest average, even a well-populated one, describes what happened before, not what will happen next.</span>`;
+  }
+
+  // ---- Drill-down data loaders — each fetches one symbol's full history
+  // on demand. Called whenever a row is expanded (a fresh click, or a
+  // panel re-render reopening what was already expanded — see
+  // setRowExpansion/reopenExpanded below), so the chart is always current
+  // rather than showing a stale snapshot from whenever it was first opened. ----
+  async function loadCheapestIVDetail(symbol, container) {
+    const rows = await fetchJSON(`iv_snapshots?symbol=eq.${encodeURIComponent(symbol)}&select=date,atm_iv_avg,put_call_skew_5pct&order=date.asc`);
+    container.innerHTML =
+      `<div class="detail-chart-title">ATM IV history</div>${singleLineChartSVG(rows, "date", "atm_iv_avg", "#3987e5", 480, 100)}` +
+      `<div class="detail-chart-title">Put/call skew history</div>${singleLineChartSVG(rows, "date", "put_call_skew_5pct", "#d55181", 480, 90)}`;
+  }
+
+  async function loadWatchlistDetail(symbol, container) {
+    const rows = await fetchJSON(`v_price_moving_averages?symbol=eq.${encodeURIComponent(symbol)}&select=date,close,volume,sma_10,sma_20,sma_50&order=date.asc`);
+    container.innerHTML =
+      `<div class="detail-chart-title">Price + moving averages</div>${priceWithMASVG(rows, 480, 150)}` +
+      `<div class="detail-chart-title">Volume</div>${volumeBarSVG(rows, 480, 70)}`;
+  }
+
+  async function loadFredDetail(seriesId, container) {
+    const rows = await fetchJSON(`fred_series?series_id=eq.${encodeURIComponent(seriesId)}&select=date,value&order=date.asc`);
+    container.innerHTML = `<div class="detail-chart-title">Full history</div>${singleLineChartSVG(rows, "date", "value", "#3987e5", 460, 110)}`;
+  }
+
+  // Which symbols are currently expanded, per panel — tracked outside the
+  // DOM because refresh() rebuilds each panel's innerHTML from scratch
+  // every 60s (new data in, same as every other panel on this page). Without
+  // this, an open drill-down chart would silently collapse out from under
+  // someone mid-review every refresh cycle; with it, refresh() calls
+  // reopenExpanded() afterward and whatever was open stays open (re-fetched
+  // fresh, same as the rest of the page).
+  const expandedRows = { "watchlist-panel": new Set(), "cheapest-iv-panel": new Set(), "fred-panel": new Set() };
+
+  function setRowExpansion(containerId, sym, expanded, loader) {
+    const sid = symbolId(sym);
+    const row = document.getElementById(`row-${containerId}-${sid}`);
+    const detail = document.getElementById(`detail-${containerId}-${sid}`);
+    if (!row || !detail) return;
+    if (!expanded) {
+      row.classList.remove("expanded");
+      detail.style.display = "none";
+      return;
+    }
+    row.classList.add("expanded");
+    detail.style.display = "block";
+    detail.innerHTML = `<div class="empty-note">Loading…</div>`;
+    loader(sym, detail).catch((err) => {
+      detail.innerHTML = `<div class="empty-note">Couldn't load history: ${escapeHTML(err.message)}</div>`;
+    });
+  }
+
+  // One delegated click listener per panel, attached once outside
+  // refresh() — a listener on the stable container survives refresh()
+  // rebuilding its children's innerHTML, unlike a per-row listener would.
+  function attachDrilldown(containerId, loader) {
+    const container = $(containerId);
+    container.addEventListener("click", (e) => {
+      const row = e.target.closest(".clickable-row");
+      if (!row || !container.contains(row)) return;
+      const sym = row.getAttribute("data-symbol");
+      if (!sym) return;
+      const set = expandedRows[containerId];
+      const nowExpanded = !set.has(sym);
+      if (nowExpanded) set.add(sym); else set.delete(sym);
+      setRowExpansion(containerId, sym, nowExpanded, loader);
+    });
+  }
+
+  // Called at the end of each render*() for a drill-down-capable panel —
+  // re-opens (and re-fetches) whatever was expanded before this render.
+  function reopenExpanded(containerId, loader) {
+    for (const sym of expandedRows[containerId]) {
+      setRowExpansion(containerId, sym, true, loader);
+    }
+  }
+
+  async function refresh() {
+    statusText.textContent = "refreshing…";
+    try {
+      const [scorecardRows, alerts, recentPrices, recentIV, ivRanks, proxyMap, maRows, fredRows, backtestRows, instrumentRows, instrumentBacktestRows, fredRanks, fredSpreadsRows] = await Promise.all([
+        fetchJSON("v_scorecard_wow?select=*&order=week_of.asc"),
+        fetchJSON("alerts_sent?select=*&order=sent_at.desc&limit=20"),
+        fetchJSON("market_prices?select=symbol,date,close&order=date.desc&limit=500"),
+        fetchJSON("iv_snapshots?select=symbol,date,atm_iv_avg,put_call_skew_5pct&order=date.desc&limit=200"),
+        fetchJSON("v_iv_rank_latest?select=*"),
+        fetchJSON("iv_proxy_map?select=*"),
+        fetchJSON("v_price_moving_averages_latest?select=*"),
+        fetchJSON("v_fred_latest?select=*"),
+        fetchJSON("v_signal_backtest_summary?select=*"),
+        fetchJSON("instruments?select=symbol,display_name,group_label"),
+        fetchJSON("v_instrument_backtest_summary?select=*"),
+        fetchJSON("v_fred_series_rank_latest?select=*"),
+        fetchJSON("v_fred_spreads_latest?select=*"),
+      ]);
+
+      const latestCloseBySymbol = {};
+      for (const row of recentPrices) {
+        if (!latestCloseBySymbol[row.symbol]) latestCloseBySymbol[row.symbol] = row; // first seen per symbol = most recent, since sorted desc
+      }
+      const latestIVBySymbol = {};
+      for (const row of recentIV) {
+        if (!latestIVBySymbol[row.symbol]) latestIVBySymbol[row.symbol] = row; // same trick, sorted desc so first-seen wins
+      }
+      const latestIVRankBySymbol = {};
+      for (const row of ivRanks) {
+        latestIVRankBySymbol[row.symbol] = row; // already one row per symbol (distinct on) from the view itself
+      }
+      const symbolToCategories = {};
+      const categoryToIVSymbols = {};
+      for (const row of proxyMap) {
+        (symbolToCategories[row.symbol] = symbolToCategories[row.symbol] || []).push(row.category);
+        (categoryToIVSymbols[row.category] = categoryToIVSymbols[row.category] || []).push(row.symbol);
+      }
+      const maBySymbol = {};
+      for (const row of maRows) maBySymbol[row.symbol] = row;
+
+      const instrumentDisplayBySymbol = {};
+      for (const row of instrumentRows) instrumentDisplayBySymbol[row.symbol] = row;
+      const instrumentBacktestBySymbol = {};
+      for (const row of instrumentBacktestRows) {
+        (instrumentBacktestBySymbol[row.symbol] = instrumentBacktestBySymbol[row.symbol] || []).push(row);
+      }
+      const fredRankBySeries = {};
+      for (const row of fredRanks) fredRankBySeries[row.series_id] = row;
+
+      // Snapshot everything the decision panel needs, so switching the
+      // dropdown re-renders instantly from cached data instead of firing a
+      // fresh round of queries — same "bulk-fetch once, slice client-side"
+      // approach every other panel on this page already uses.
+      lastSnapshot = {
+        symbols: Object.keys(symbolToCategories).sort(),
+        scorecardRows, latestIVBySymbol, latestIVRankBySymbol, maBySymbol,
+        symbolToCategories, instrumentDisplayBySymbol, instrumentBacktestBySymbol,
+      };
+
+      renderVixHeadline(fredRows, fredRankBySeries);
+      renderOpportunities(scorecardRows, proxyMap, latestIVBySymbol, latestIVRankBySymbol, maBySymbol, instrumentBacktestBySymbol);
+      renderPanicRadar(scorecardRows, categoryToIVSymbols, latestIVBySymbol, latestIVRankBySymbol);
+      renderDirectionCheck(scorecardRows, maBySymbol);
+      renderTrend(scorecardRows);
+      renderTriggers(scorecardRows, categoryToIVSymbols, latestIVBySymbol, maBySymbol);
+      renderDecisionPanel();
+      renderFred(fredRows);
+      renderFredSpreads(fredSpreadsRows && fredSpreadsRows[0] ? fredSpreadsRows[0] : null);
+      renderCategories(scorecardRows, latestCloseBySymbol, latestIVBySymbol, latestIVRankBySymbol);
+      renderCheapestIV(latestIVBySymbol, latestIVRankBySymbol, symbolToCategories);
+      renderWatchlist(maRows);
+      renderBacktest(backtestRows);
+      renderAlerts(alerts);
+
+      errorBanner.style.display = "none";
+      statusDot.className = "dot ok";
+      statusText.textContent = `updated ${new Date().toLocaleTimeString()}`;
+    } catch (err) {
+      statusDot.className = "dot bad";
+      statusText.textContent = "error — see below";
+      errorBanner.style.display = "block";
+      errorBanner.textContent = `Couldn't refresh: ${err.message}\n\nCommon causes: wrong SUPABASE_URL or SUPABASE_ANON_KEY, the RLS policies from supabase_schema.sql not yet applied, or no network from this browser.`;
+    }
+  }
+
+  attachDrilldown("cheapest-iv-panel", loadCheapestIVDetail);
+  attachDrilldown("watchlist-panel", loadWatchlistDetail);
+  attachDrilldown("fred-panel", loadFredDetail);
+
+  // Re-render instantly from cached data — no network round trip, same
+  // reasoning as the comment on lastSnapshot above.
+  $("decision-symbol-select").addEventListener("change", renderDecisionPanel);
+
+  $("refresh-btn").addEventListener("click", refresh);
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+})();
+</script>
+
+</body>
+</html>
