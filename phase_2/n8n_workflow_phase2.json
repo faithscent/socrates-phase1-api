@@ -1,0 +1,317 @@
+{
+  "name": "SOCrates Phase 2 - Real Data Pipeline",
+  "description": "Fetch real OHLCV data, run analysis on FXE/FXY/IBIT",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "socrates-daily-v2",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 150]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ohlcv_bars WHERE symbol = 'FXE' AND timeframe = '1D' ORDER BY timestamp DESC LIMIT 50"
+      },
+      "id": "query_fxe",
+      "name": "Query FXE Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [250, 150],
+      "credentials": {
+        "postgres": "YOUR_SUPABASE_CONNECTION"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ohlcv_bars WHERE symbol = 'FXY' AND timeframe = '1D' ORDER BY timestamp DESC LIMIT 50"
+      },
+      "id": "query_fxy",
+      "name": "Query FXY Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [250, 250],
+      "credentials": {
+        "postgres": "YOUR_SUPABASE_CONNECTION"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ohlcv_bars WHERE symbol = 'IBIT' AND timeframe = '1D' ORDER BY timestamp DESC LIMIT 50"
+      },
+      "id": "query_ibit",
+      "name": "Query IBIT Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [250, 350],
+      "credentials": {
+        "postgres": "YOUR_SUPABASE_CONNECTION"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://socrates-phase1-api-production.up.railway.app/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "FXE"
+            },
+            {
+              "name": "timeframe",
+              "value": "1D"
+            },
+            {
+              "name": "current_price",
+              "value": "={{$node[\"Query FXE Data\"].json.rows[0].close}}"
+            },
+            {
+              "name": "bars",
+              "value": "={{$node[\"Query FXE Data\"].json.rows.map(r => ({timestamp: r.timestamp, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume}))}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "analyze_fxe",
+      "name": "Analyze FXE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [400, 150]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://socrates-phase1-api-production.up.railway.app/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "FXY"
+            },
+            {
+              "name": "timeframe",
+              "value": "1D"
+            },
+            {
+              "name": "current_price",
+              "value": "={{$node[\"Query FXY Data\"].json.rows[0].close}}"
+            },
+            {
+              "name": "bars",
+              "value": "={{$node[\"Query FXY Data\"].json.rows.map(r => ({timestamp: r.timestamp, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume}))}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "analyze_fxy",
+      "name": "Analyze FXY",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [400, 250]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://socrates-phase1-api-production.up.railway.app/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "IBIT"
+            },
+            {
+              "name": "timeframe",
+              "value": "1D"
+            },
+            {
+              "name": "current_price",
+              "value": "={{$node[\"Query IBIT Data\"].json.rows[0].close}}"
+            },
+            {
+              "name": "bars",
+              "value": "={{$node[\"Query IBIT Data\"].json.rows.map(r => ({timestamp: r.timestamp, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume}))}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "analyze_ibit",
+      "name": "Analyze IBIT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [400, 350]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://db.cztxnaqtklilxdcdwzka.supabase.co/rest/v1/technical_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "results",
+              "value": "={{[{symbol: 'FXE', report: $node[\"Analyze FXE\"].json.report, timestamp: $now.toISOString()}, {symbol: 'FXY', report: $node[\"Analyze FXY\"].json.report, timestamp: $now.toISOString()}, {symbol: 'IBIT', report: $node[\"Analyze IBIT\"].json.report, timestamp: $now.toISOString()}]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "save_results",
+      "name": "Save All Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [550, 250]
+    }
+  ],
+  "connections": {
+    "webhook": {
+      "main": [
+        [
+          {
+            "node": "Query FXE Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query FXY Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query IBIT Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query FXE Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze FXE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query FXY Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze FXY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query IBIT Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze IBIT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze FXE": {
+      "main": [
+        [
+          {
+            "node": "Save All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze FXY": {
+      "main": [
+        [
+          {
+            "node": "Save All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze IBIT": {
+      "main": [
+        [
+          {
+            "node": "Save All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "phase2-workflow"
+  }
+}
